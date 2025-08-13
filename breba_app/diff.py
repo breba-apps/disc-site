@@ -15,7 +15,7 @@ def get_diff(old_text: str, new_text: str):
         tofile='after',
         lineterm=''
     )
-    return "\n".join(diff)
+    return "\n".join(diff) + "\n"
 
 
 def apply_diff(original_text: str, diff_text: str) -> str:

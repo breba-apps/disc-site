@@ -41,8 +41,6 @@ def invalid_diff():
     return "--- invalid diff ---"
 
 
-# Test cases
-
 def test_apply_diff_correct(original_html, modified_html, valid_diff):
     result = apply_diff(original_html, valid_diff)
     assert result == modified_html
