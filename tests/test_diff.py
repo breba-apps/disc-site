@@ -1,7 +1,8 @@
 from pathlib import Path
 
 import pytest
-from breba_app.diff import apply_diff, get_diff
+
+from breba_app.diff import apply_diff, get_diff, PatchApplyError
 
 
 @pytest.fixture(scope="session")
@@ -49,18 +50,18 @@ def test_apply_diff_correct(original_html, modified_html, valid_diff):
 
 def test_apply_diff_context_not_found(original_html, valid_diff):
     modified_content = original_html.replace("<h1>Hello World</h1>", "<h1>Hi Universe</h1>")
-    with pytest.raises(Exception):
+    with pytest.raises(PatchApplyError):
         apply_diff(modified_content, valid_diff)
 
 
 def test_apply_diff_add_remove_not_found(original_html, valid_diff):
     modified_content = original_html.replace("<p>This is the original HTML content.</p>", "<p>Changed content.</p>")
-    with pytest.raises(Exception):
+    with pytest.raises(PatchApplyError):
         apply_diff(modified_content, valid_diff)
 
 
 def test_apply_diff_invalid_diff(original_html, invalid_diff):
-    with pytest.raises(Exception):
+    with pytest.raises(PatchApplyError):
         apply_diff(original_html, invalid_diff)
 
 
