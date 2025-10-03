@@ -206,7 +206,7 @@
     <div class="row h-100 g-1 align-items-stretch">
         <!-- Sidebar Panle (buttons) -->
         <div id="sidebar-buttons"
-             class="col-12 col-md-auto mt-1 mt-md-1 d-none align-middle align-self-start align-self-md-stretch">
+             class="col-12 col-md-auto mt-1 mt-md-1 d-none align-middle align-self-start align-self-md-stretch d-none">
             <div class="d-flex flex-md-column flex-row bg-dark rounded gap-2 h-100 pt-md-0 w-100 w-md-auto">
                 <a href="/home"
                    class="btn text-white d-flex align-items-center justify-content-center shadow-none focus-ring-0"
@@ -231,7 +231,7 @@
             </div>
         </div>
         <!-- Left Panels (inputs)-->
-        <div id="left-panels" class="col-12 col-md-4 d-flex flex-column">
+        <div id="left-panels" class="col-12 d-flex flex-column">
             <div class="panel-overlay"></div>
             <!-- Side panels positioned relative to #left-panels -->
             <div id="input-panel"
@@ -257,7 +257,7 @@
         </div>
 
         <!-- Generator Panel (with a generated website)-->
-        <div id="right-panel" class="col-12 col-md d-flex flex-column">
+        <div id="right-panel" class="col-12 col-md d-flex flex-column d-none">
             <div id="generator-panel"
                  class="panel flex-fill d-flex flex-column overflow-auto bg-white w-100 border shadow rounded-3 position-relative">
                 {% include "generator.html" %}

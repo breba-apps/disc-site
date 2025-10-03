@@ -190,7 +190,7 @@ class BuilderAgent:
         if len(split_message) > 1:
             diff = split_message[1]
             if not diff:
-                raise f"Cloud not extract diff, something went wrong: {diff}"
+                raise Exception(f"Cloud not extract diff, something went wrong: {diff}")
             logger.info(f"Attempting to apply diff: {diff}")
             try:
                 new_prompt = apply_diff_no_line_numbers(state["prompt"], diff)
@@ -200,7 +200,7 @@ class BuilderAgent:
             except Exception as e:
                 logger.error(f"Failed to apply diff: {e}\n"
                              f"Failed diff: {diff}")
-                return {"messages": ["Diff failed to apply with the following error: {e}"]}
+                raise e
 
         return {"prompt": new_prompt, "messages": [last_message]}
 

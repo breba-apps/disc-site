@@ -7,14 +7,14 @@ from bson import DBRef
 from chainlit import Message
 
 from auth import verify_password
-from storage import save_file_to_private, save_image_file_to_private, load_template, read_spec_text, \
-    read_index_html, get_public_url
-from deployment_controller import run_deployment
-from llm_utils import get_product_name
 from breba_app.models.deployment import Deployment
 from breba_app.models.product import Product
 from breba_app.models.user import User
+from deployment_controller import run_deployment
+from llm_utils import get_product_name
 from orchestrator import get_generator_response, to_builder, update_builder_spec, set_generator_response, to_generator
+from storage import save_file_to_private, save_image_file_to_private, load_template, read_spec_text, \
+    read_index_html, get_public_url, save_spec
 
 PRODUCT_NAME_PLACEHOLDER = "Unnamed Product"
 
@@ -90,7 +90,7 @@ async def builder_completed(payload: str):
         product = await create_or_update_product_for(user_name, product_id, payload, product_name)
         cl.user_session.set("product_name", product.name)
 
-    save_file_to_private(user_name, product_id, "spec.txt", payload.encode("utf-8"), "text/plain")
+    save_spec(user_name, product_id, payload)
     builder_message = {"method": "to_builder", "body": payload}
     await cl.send_window_message(builder_message)
 
@@ -234,13 +234,26 @@ async def respond(message: Message):
     product_id = cl.user_session.get("product_id")
     user_name = cl.user_session.get("user").identifier
 
-    if len(message.elements) > 0:
+    if len(message.elements) > 1:
+        await cl.Message(content="Multiple files are not supported. Please upload one file at a time.").send()
+        return
+    elif len(message.elements) == 1:
         # This happens when we are uploading a file from the chat window
-        blob_image_path = save_image_file_to_private(user_name, product_id, message.elements[0].name,
-                                                     message.elements[0].path,
-                                                     message.content)
-        message.content = f"Given: {blob_image_path} \n {message.content}"
-    await to_builder(user_name, product_id, message.content, builder_completed, process_generator_message, ask_user)
+        try:
+            blob_image_path = save_image_file_to_private(user_name, product_id, message.elements[0].name,
+                                                         message.elements[0].path,
+                                                         message.content)
+            message.content = f"Here is a newly uploaded file: {blob_image_path} \n {message.content}.\n\nDon't forget to ask if the I would like to upload another file."
+            await to_builder(user_name, product_id, message.content, builder_completed, ask_user,
+                             process_generator_message)
+        except ValueError as e:
+            await cl.Message(content=str(e)).send()
+        except Exception as e:
+            await cl.Message(
+                content="Something went wrong while uploading the file. Try again later, or contact support.").send()
+    else:
+        await to_builder(user_name, product_id, message.content, builder_completed, ask_user,
+                         process_generator_message)
 
 
 @cl.password_auth_callback

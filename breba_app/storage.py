@@ -4,6 +4,7 @@ import logging
 import os
 import re
 from collections import defaultdict
+from pathlib import Path
 from typing import Tuple, TypedDict, Union
 
 import boto3
@@ -13,6 +14,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 logger = logging.getLogger(__name__)
+
+MAX_FILE_SIZE = 1024 * 1024 * 32  # 32MB is cloud run limit
 
 USERS_BUCKET_NAME: str = os.getenv("USERS_BUCKET")
 CLOUDFLARE_ENDPOINT: str = os.getenv("CLOUDFLARE_ENDPOINT")
@@ -67,6 +70,14 @@ def _user_session_object(user_name: str, session_id: str, relative_path: str, de
 
 
 def save_image_to_private(user_name: str, session_id: str, image_name: str, content: bytes, description: str = None):
+    """
+    Save image bytes to private bucket. This is used for uploads of images form AI, but is not safe for user-uploaded images.
+    :param user_name: username
+    :param session_id: session id used for locating image files
+    :param image_name: image name
+    :param content: image content
+    :param description: image description, stored as metadata
+    """
     key = f"{user_name}/{session_id}/{image_name}"
 
     try:
@@ -85,8 +96,20 @@ def save_image_to_private(user_name: str, session_id: str, image_name: str, cont
 
 def save_image_file_to_private(user_name: str, session_id: str, file_name: str, file_path: str,
                                description: str = None):
+    """
+    Save file to private bucket. This is used for uploads of images from user-uploaded images.
+    :param user_name:
+    :param session_id:
+    :param file_name:
+    :param file_path:
+    :param description:
+    :return:
+    """
     key = f"{user_name}/{session_id}/{file_name}"
 
+    file_size = Path(file_path).stat().st_size
+    if file_size > MAX_FILE_SIZE:
+        raise ValueError(f"File size exceeds limit of {MAX_FILE_SIZE / 1024 / 1024} MB")
     try:
         s3_client.upload_file(
             Filename=file_path,
@@ -104,13 +127,7 @@ def save_image_file_to_private(user_name: str, session_id: str, file_name: str, 
 
 
 def save_spec(user_name: str, session_id: str, spec: str):
-    key = f"{user_name}/{session_id}/spec.txt"
-    s3_client.put_object(
-        Bucket=USERS_BUCKET_NAME,
-        Key=key,
-        Body=spec.encode("utf-8"),
-        ContentType="text/plain"
-    )
+    save_file_to_private(user_name, session_id, "spec.txt", spec.encode("utf8"), "text/plain")
 
 
 def read_spec_text(user_name: str, session_id: str) -> str | None:

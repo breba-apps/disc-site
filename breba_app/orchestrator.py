@@ -59,12 +59,15 @@ async def generate_full_website(user_name: str, session_id: str, spec: str, gene
 async def generator_task(user_name: str, session_id: str, spec: str, generator_callback):
     try:
         if not generator_agent.get_last_html(session_id):
+            # This means we are starting a brand new website.
             logger.info("Existing html not found. Generating full website")
             await generate_full_website(user_name, session_id, spec, generator_callback)
-        async for update in generator_agent.diffing_spec_update(spec, user_name, session_id):
-            update = update.get("content")
-            await generator_callback(update)
-        await generator_callback("__completed__")
+        else:
+            # Here we are editing an existing website
+            async for update in generator_agent.diffing_spec_update(spec, user_name, session_id):
+                update = update.get("content")
+                await generator_callback(update)
+            await generator_callback("__completed__")
     except Exception as e:
         logger.info(f"Diffing spec update failed: {e}")
         logger.info("Falling back to rebuilding the website from scratch")

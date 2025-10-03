@@ -10,7 +10,7 @@ assignees: ''
 ---
 
 ## 🐞 Description
-A clear and concise description of the problem.
+<!-- A clear and concise description of the problem. -->
 
 ## 🔁 Steps to Reproduce
 
@@ -21,13 +21,13 @@ Steps to reproduce the behavior:
 4. See the error
 
 ## 🤔 Expected Behavior
-A clear and concise description of what you expected to happen.
+<!-- A clear and concise description of what you expected to happen. -->
 
 ## 😵 Actual Behavior
-Description of what actually happened.
+<!-- Description of what actually happened. -->
 
 ## 🖼️ Screenshots or Logs
-If applicable, add screenshots, error messages, or log output to help explain the problem.
+<!-- If applicable, add screenshots, error messages, or log output to help explain the problem. -->
 
 ## 💻 Environment
 - OS: [e.g. macOS 14, Windows 11]
@@ -35,7 +35,7 @@ If applicable, add screenshots, error messages, or log output to help explain th
 - App version/commit hash: [e.g. v1.2.3 or `abc123`]
 
 ## ✅ Additional Context
-Any other context or details about the bug.
+<!--Any other context or details about the bug. -->
 
 ## 📋 Acceptance Criteria
 - [ ] Reproduction steps documented

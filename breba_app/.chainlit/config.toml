@@ -48,7 +48,7 @@ edit_message = true
     # Note: Using "*/*" is not recommended as it may cause browser warnings
     accept = ["*/*"]
     max_files = 20
-    max_size_mb = 500
+    max_size_mb = 32  # 32MB is the cloud run limit
 
 [features.audio]
     # Sample rate of the audio

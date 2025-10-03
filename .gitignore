@@ -24,9 +24,6 @@ env/
 *.swp
 docker-compose.override.yml
 
-# === Chainlit ===
-.chainlit/
-
 # === JetBrains IDEs ===
 .idea/
 
