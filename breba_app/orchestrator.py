@@ -1,5 +1,6 @@
 import difflib
 import logging
+import chainlit as cl
 
 from agent_model import TextPart, Message
 from builder_agent.agent import agent as builder_agent
@@ -95,7 +96,7 @@ async def builder_editing_task(user_name: str, session_id: str, message: str):
     return agent_response
 
 
-async def to_generator(user_name: str, session_id: str, message: str, builder_completed_callback, generator_callback,
+async def to_generator(user_name: str, session_id: str, message: str, generator_completed_callback, generator_callback,
                        message_to_user_callback):
     old_html = generator_agent.get_last_html(session_id)
     await message_to_user_callback("Generator is processing your request...")
@@ -119,35 +120,44 @@ async def to_generator(user_name: str, session_id: str, message: str, builder_co
     is_task_completed = agent_response.get("is_task_complete")
 
     if is_task_completed:
-        await builder_completed_callback(content)
+        await generator_completed_callback()
     else:
         logger.info(f"Waiting for user input: {content}")
         await message_to_user_callback(content)
 
 
-async def to_builder(user_name: str, session_id: str, message: str, builder_completed_callback,
-                     message_to_user_callback,
-                     generator_callback):
-    await message_to_user_callback("Builder is working on the specification...")
-    spec = await builder_agent.get_last_spec(session_id)
-    if spec:
-        agent_response = await builder_editing_task(user_name, session_id, message)
-    else:
-        agent_message = Message(role="user", parts=[TextPart(text=message)])
-        agent_response = await builder_agent.invoke(user_name, session_id, agent_message)
+
+async def to_builder(user_name: str, session_id: str, message: str, builder_completed_callback, generator_callback,
+                     message_to_user_callback):
+
+    # Builder step with custom message
+    async with cl.Step(name="Builder is working", type="tool"):
+            spec = await builder_agent.get_last_spec(session_id)
+            async with cl.Step(name="Builder is now working on the specification. This may take a few moments.",
+                               type="tool"):
+                if spec:
+                    agent_response = await builder_editing_task(user_name, session_id, message)
+                else:
+                    agent_message = Message(role="user", parts=[TextPart(text=message)])
+                    agent_response = await builder_agent.invoke(user_name, session_id, agent_message)
+
 
     is_task_completed = agent_response.get("is_task_complete")
 
     if is_task_completed:
         spec = agent_response.get("content")
         await builder_completed_callback(spec)
-        await message_to_user_callback(
-            "Generating preview for the new spec... Use the 📄 from the sidebar to check the new spec")
-        await generator_task(user_name, session_id, spec, generator_callback)
+        # Streaming task step with custom message
+        async with cl.Step(name="Generating preview...", type="tool"):
+            async with cl.Step(name="Generating preview for the new spec... Use the 📄 from the sidebar to check the new spec.",
+                                type="tool") as step:
+                await generator_task(user_name, session_id, spec, generator_callback)
+                
+        await message_to_user_callback("The website is ready to be deployed. Use the 🚀 from the sidebar to deploy your website")
     else:
         message = agent_response.get("content")
         logger.info(f"Waiting for user input: {message}")
-        await message_to_user_callback(message)
+        # await message_to_user_callback(message) # do we need it? it's looks like it doesn not do anything
 
 
 async def update_builder_spec(session_id: str, message: str):

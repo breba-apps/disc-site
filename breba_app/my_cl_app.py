@@ -24,7 +24,6 @@ async def has_cloud_storage(user_name: str, session_id: str):
     spec = read_spec_text(user_name, session_id)
     return spec is not None
 
-
 async def populate_from_cloud_storage(user_name: str, session_id: str):
     spec = read_spec_text(user_name, session_id)
     product = read_index_html(user_name, session_id)
@@ -34,7 +33,6 @@ async def populate_from_cloud_storage(user_name: str, session_id: str):
 
     await asyncio.gather(update_builder_spec(session_id, spec), builder_completed(spec),
                          process_generator_message("__completed__"))
-
 
 async def create_blank_product_for(user_name: str):
     user_obj = await User.find_one(User.username == user_name)
@@ -147,10 +145,11 @@ async def main():
     active_product = None
     if user:
         await cl.send_window_message({"method": "logged_in"})
-        # First try to get the active product
-        active_product = await Product.find_one(
-            Product.user.id == user.id, Product.active == True
-        )
+        async with cl.Step(name=f"Loading...", type="tool", ):
+            # First try to get the active product
+            active_product = await Product.find_one(
+                Product.user.id == user.id, Product.active == True
+            )
 
         # Fallback to most recently created product
         if not active_product:
@@ -201,17 +200,16 @@ async def window_message(message: str | dict):
 
     if method == "to_builder":
         await to_builder(user_name, product_id, message.get("body", "INVALID REQEUST, something went wrong"),
-                         builder_completed,
-                         ask_user, process_generator_message)
+                         builder_completed, process_generator_message, ask_user)
     elif method == "to_generator":
         await to_generator(user_name, product_id, message.get("body", "INVALID REQEUST, something went wrong"),
-                           builder_completed, process_generator_message, ask_user)
+                           generator_completed, process_generator_message, ask_user)
     elif method == "load_template":
         load_template(user_name, product_id, message.get("body"))
         await populate_from_cloud_storage(user_name, product_id)
     elif method == "deploy":
         site_name = message.get("body")
-        # TODO: This needs to go awaay
+        # TODO: This needs to go away
         # TODO: optimize this. Product_id should come with the request from the forntend
         #  (in fact this is a bug that product is stored in session).
         product = await Product.find_one(Product.product_id == product_id)
@@ -242,7 +240,7 @@ async def respond(message: Message):
                                                      message.elements[0].path,
                                                      message.content)
         message.content = f"Given: {blob_image_path} \n {message.content}"
-    await to_builder(user_name, product_id, message.content, builder_completed, ask_user, process_generator_message)
+    await to_builder(user_name, product_id, message.content, builder_completed, process_generator_message, ask_user)
 
 
 @cl.password_auth_callback
