@@ -5,4 +5,4 @@ uv sync
 
 echo "Starting app..."
 # Run app with project root in PYTHONPATH
-PYTHONPATH=. CHAINLIT_APP_ROOT=./breba_app uv run python breba_app/main.py
+PYTHONPATH=. CHAINLIT_APP_ROOT=./breba_app uv run breba_app/main.py
