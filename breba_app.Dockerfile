@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM ghcr.io/astral-sh/uv:python3.12-trixie-slim
 
 WORKDIR /app
 
@@ -11,27 +11,31 @@ RUN apt-get update && apt-get install -y \
     libffi-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Create a non-root user
-RUN groupadd -r appuser && useradd -r -g appuser appuser
+
+ENV PYTHONPATH=/app \
+    CHAINLIT_APP_ROOT=/app/breba_app
+
+# Leverage Docker layer cache: copy lockfiles first, then sync env
+#    (uv will create .venv in /app)
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev
+
 
 # Copy the entire app into the image
 COPY breba_app ./breba_app
-COPY ./requirements.txt .
 # Public direcotry is used by chainlit to get files. Needs to be on the level of working directory
 COPY breba_app/public ./public
 COPY breba_app/.chainlit ./.chainlit
 COPY breba_app/chainlit.md ./chainlit.md
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
 
-# Change ownership of /app directory to appuser (after all files are copied)
-RUN chown -R appuser:appuser /app
-
-# Switch to non-root user
+# Non-root user
+RUN groupadd -r appuser && useradd -r -g appuser appuser \
+ && chown -R appuser:appuser /app
 USER appuser
 
+
 # Command to run the app with uvicorn
-CMD ["python", "breba_app/main.py"]
+CMD ["/app/.venv/bin/python", "breba_app/main.py"]
 
 EXPOSE 8080
