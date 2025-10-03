@@ -141,4 +141,4 @@ mount_chainlit(app=app, target=str(current_file_dir / "my_cl_app.py"), path="/ch
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("main:app", host=HOST, port=PORT, reload=False)
+    uvicorn.run("main:app", host=HOST, port=PORT, reload=True)

@@ -13,8 +13,8 @@ if [ ! -d ".venv" ]; then
 fi
 
 echo "Starting app..."
-# Run app with project root in PYTHONPATH
+# Run app with uvicorn for auto-reload functionality
 (
   cd breba_app
-  PYTHONPATH=$(pwd)/.. ../.venv/bin/python main.py
+  PYTHONPATH=$(pwd)/.. ../.venv/bin/uvicorn main:app --host ${HOST:-0.0.0.0} --port ${PORT:-8080} --reload
 )
