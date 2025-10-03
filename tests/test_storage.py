@@ -1,7 +1,7 @@
 from collections import defaultdict
 from unittest.mock import Mock, patch
 
-from breba_app.storage import list_files_structured, register_file, make_dir_tree, format_tree, list_files_in_private
+from breba_app.storage import list_s3_structured, register_file, make_dir_tree, format_tree, list_files_in_private
 
 
 class MockBlob:
@@ -22,7 +22,7 @@ def test_register_file():
     assert result is directory["images"]["folder1"]
 
 
-def test_list_files_structured_empty():
+def test_list_s3_structured_empty():
     """Test with no files"""
     with patch('google.cloud.storage.Client') as mock_client:
         # Setup mock bucket and blobs
@@ -30,11 +30,11 @@ def test_list_files_structured_empty():
         mock_client.return_value.bucket.return_value = mock_bucket
         mock_bucket.list_blobs.return_value = []
 
-        result = list_files_structured("test_session")
+        result = list_s3_structured("test_session")
         assert result == {}
 
 
-def test_list_files_structured_single_file():
+def test_list_s3_structured_single_file():
     """Test with a single file"""
     with patch('google.cloud.storage.Client'):
         # Setup mock bucket
@@ -47,7 +47,7 @@ def test_list_files_structured_single_file():
 
         # Patch the private_bucket in the storage module
         with patch('breba_app.storage.private_bucket', mock_bucket):
-            result = list_files_structured("test_session")
+            result = list_s3_structured("test_session")
 
         expected = defaultdict(dict, {
             "images": defaultdict(dict, {
@@ -57,7 +57,7 @@ def test_list_files_structured_single_file():
         assert result == expected
 
 
-def test_list_files_structured_nested():
+def test_list_s3_structured_nested():
     """Test with nested directory structure"""
     with patch('google.cloud.storage.Client'):
         # Setup mock bucket with multiple blobs
@@ -70,7 +70,7 @@ def test_list_files_structured_nested():
         mock_bucket.list_blobs.return_value = mock_blobs
 
         with patch('breba_app.storage.private_bucket', mock_bucket):
-            result = list_files_structured("test_session")
+            result = list_s3_structured("test_session")
 
         expected = defaultdict(dict, {
             "images": defaultdict(dict, {
@@ -86,7 +86,7 @@ def test_list_files_structured_nested():
         assert result == expected
 
 
-def test_list_files_structured_no_metadata():
+def test_list_s3_structured_no_metadata():
     """Test files without metadata"""
     with patch('google.cloud.storage.Client'):
         mock_bucket = Mock()
@@ -94,7 +94,7 @@ def test_list_files_structured_no_metadata():
         mock_bucket.list_blobs.return_value = [mock_blob]
 
         with patch('breba_app.storage.private_bucket', mock_bucket):
-            result = list_files_structured("test_session")
+            result = list_s3_structured("test_session")
 
         expected = defaultdict(dict, {
             "images": defaultdict(dict, {
@@ -104,7 +104,7 @@ def test_list_files_structured_no_metadata():
         assert result == expected
 
 
-def test_list_files_structured_multiple_sessions():
+def test_list_s3_structured_multiple_sessions():
     """Test that files from different sessions are separated"""
     with patch('google.cloud.storage.Client'):
         mock_bucket = Mock()
@@ -115,7 +115,7 @@ def test_list_files_structured_multiple_sessions():
         mock_bucket.list_blobs.return_value = mock_blobs
 
         with patch('breba_app.storage.private_bucket', mock_bucket):
-            result = list_files_structured("session1")
+            result = list_s3_structured("session1")
 
         # Assert list_blobs was called with the correct prefix
         mock_bucket.list_blobs.assert_called_once_with(prefix="session1")
