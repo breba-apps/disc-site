@@ -82,13 +82,10 @@ if [ ! -d ".venv" ]; then
   uv sync
 fi
 
-echo "Installing Chainlit..."
-.venv/bin/pip install --quiet chainlit
-
 # Generate CHAINLIT_AUTH_SECRET if missing
 if ! grep -q "CHAINLIT_AUTH_SECRET" "$ENV_FILE" 2>/dev/null; then
   echo "Generating CHAINLIT_AUTH_SECRET..."
-  SECRET=$(.venv/bin/chainlit create-secret | grep CHAINLIT_AUTH_SECRET | cut -d= -f2- | tr -d '"')
+  SECRET=$(uv run chainlit create-secret | grep CHAINLIT_AUTH_SECRET | cut -d= -f2- | tr -d '"')
   echo "CHAINLIT_AUTH_SECRET=$SECRET" >> $ENV_FILE
   echo "Added CHAINLIT_AUTH_SECRET to .env"
 fi
