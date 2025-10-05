@@ -13,6 +13,15 @@ fi
 
 echo "✅ Python version $CURRENT_PYTHON OK"
 
+# --- uv package manager check ---
+if ! command -v uv >/dev/null 2>&1; then
+  echo "❌ 'uv' package manager not found."
+  echo "   Install it with: curl -LsSf https://astral.sh/uv/install.sh | sh"
+  exit 1
+else
+  echo "✅ 'uv' package manager found."
+fi
+
 ENV_FILE="./breba_app/.env"
 
 # Ensure ENV_FILE exists
@@ -70,12 +79,7 @@ echo "========================================"
 # Check if .venv exists
 if [ ! -d ".venv" ]; then
   echo ".venv not found. Creating virtual environment..."
-  python3 -m venv .venv
-  echo "Installing requirements..."
-  .venv/bin/pip install --upgrade pip
-  if [ -f requirements.txt ]; then
-    .venv/bin/pip install -r requirements.txt
-  fi
+  uv sync
 fi
 
 echo "Installing Chainlit..."
