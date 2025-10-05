@@ -4,8 +4,8 @@ import chainlit as cl
 
 from agent_model import TextPart, Message
 from builder_agent.agent import agent as builder_agent
-from generator_agent.accumulator import TagAccumulator
-from generator_agent.agent import agent as generator_agent
+from breba_app.generator_agent.accumulator import TagAccumulator
+from breba_app.generator_agent.agent import agent as generator_agent
 
 logger = logging.getLogger(__name__)
 
