@@ -24,12 +24,6 @@ class LlmResponseParser:
     def __init__(self, options: DoNotUseDirectlyCallManager):
         self.__options = options
 
-    def GenerateFollowUpQuestions(
-        self, llm_response: str, baml_options: BamlCallOptions = {},
-    ) -> str:
-        __result__ = self.__options.merge_options(baml_options).parse_response(function_name="GenerateFollowUpQuestions", llm_response=llm_response, mode="request")
-        return typing.cast(str, __result__)
-
     def GenerateSpecificationFromTemplate(
         self, llm_response: str, baml_options: BamlCallOptions = {},
     ) -> typing.Union["types.Question", "types.WebsiteSpecification"]:
@@ -43,12 +37,6 @@ class LlmStreamParser:
 
     def __init__(self, options: DoNotUseDirectlyCallManager):
         self.__options = options
-
-    def GenerateFollowUpQuestions(
-        self, llm_response: str, baml_options: BamlCallOptions = {},
-    ) -> str:
-        __result__ = self.__options.merge_options(baml_options).parse_response(function_name="GenerateFollowUpQuestions", llm_response=llm_response, mode="stream")
-        return typing.cast(str, __result__)
 
     def GenerateSpecificationFromTemplate(
         self, llm_response: str, baml_options: BamlCallOptions = {},
