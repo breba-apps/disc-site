@@ -19,10 +19,7 @@ landing_page_instructions = f"""
   - Navbar background shows up only after visitor starts scrolling
   - For mobile, make sure that when the sandwich button is clicked, the rolled out items have a contrasting background color
   - For mobile, make sure that the sandwich button color contrasts the background (whatever it is)
-- Classes section with a schedule
-- Mission section
-- Teaching philosophy section
-- Then Testimonials section with 3 testimonials
+- Testimonials section with 6 testimonials
 - FAQs section with 5 questions based on the business plan
 - Footer with social media icons
 - Modal form with fields: Name, Email, Message
@@ -48,5 +45,5 @@ landing_page_instructions = f"""
 - Use Bootstrap 5.3.8 via CDN for core styling (without integrity check):
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-"""
+  """
 

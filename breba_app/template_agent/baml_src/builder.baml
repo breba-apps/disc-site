@@ -155,7 +155,7 @@ test BuildTheActualSpec {
 - You must fill out all SEO tags.
 
 ## Technical requirements
-- The page should be responsive.
+- The page should be responsive (use clamps for font sizes, gaps, padding, etc.)
 - The page should be mobile-first.
 - The page should be accessible.
 - The page should be optimized for speed.

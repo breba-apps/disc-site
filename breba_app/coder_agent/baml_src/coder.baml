@@ -85,6 +85,8 @@ Always make changes with the best practices in mind
 12. Make sure to optimize for SEO and core web vitals.
 13. Make sure to update sitemap.xml for any visible content changes.
 14. A production ready website must have robots.txt file.
+15. Must be responsive (use clamps for font sizes, gaps, padding, etc.)
+16. Always consider font color and background contrast for readability.
 </html_best_practices>
 <third_party_libraries>
 When using third party libraries, do not make up integrity hashes. Only use integrity checks if provided by the user.
