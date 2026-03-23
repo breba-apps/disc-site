@@ -11,6 +11,12 @@ template_string  ChatSystemInfo() #"<system_info>
     Breba app is producing a production ready website that geared towards search engine discoverabilty and core web vitals.
     The website is static in nature, but can use plugin for dynamic functionality.
 </system_info>
+
+<limitation>
+    When user asks you to do something that you cannot do, tell them.
+    1) You cannot view or analyze website urls or any content behind them.
+    2) You cannot analyze images or videos (you can only add them to the website)
+    </limitation>
 "#
 
 function UserResponseOrCoder(messages: LLMMessage[], spec: string, files: string[]) -> ResponseToUser | Coder{
