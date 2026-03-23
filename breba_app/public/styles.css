@@ -292,14 +292,6 @@ body {
     animation-delay: 0s;
 }
 
-.shape-2 {
-    width: 200px;
-    height: 200px;
-    top: 60%;
-    right: 15%;
-    animation-delay: 5s;
-}
-
 .shape-3 {
     width: 150px;
     height: 150px;
@@ -307,16 +299,6 @@ body {
     left: 20%;
     animation-delay: 10s;
 }
-
-.shape-4 {
-    width: 100px;
-    height: 100px;
-    top: 30%;
-    right: 30%;
-    animation-delay: 15s;
-}
-
-/* Float animation removed */
 
 .hero-container {
     max-width: 1200px;
@@ -405,45 +387,42 @@ body {
     border-color: var(--gray-400);
 }
 
-.hero-stats {
-    display: flex;
-    gap: 3rem;
-    align-items: center;
-}
+.screenshot-stack {
+        position: relative;
+        width: 100%;
+        aspect-ratio: 16 / 11;
+        flex-shrink: 0;
+    }
+    .stack-card {
+        position: absolute;
+        width: 60%;
+        aspect-ratio: 16 / 9;
+        left: 5%;
+        top: 50%;
+        margin-top: -25.3125%; /* half card height = (90% × 9/16) / 2; % is relative to parent width */
+        border-radius: 10px;
+        overflow: hidden;
+        border: 1.5px solid rgba(161, 138, 231, 0.35);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), 0 0 16px rgba(161, 138, 231, 0.2);
+        transition: transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 0.35s ease;
+        cursor: pointer;
+    }
+    .stack-card img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+    .c1 { transform: rotate(-5deg) translate(-5%,  -50%); z-index: 1; }
+    .c2 { transform: rotate(4deg) translate(50%,    -39%); z-index: 2; }
+    .c3 { transform: rotate(5deg)  translate(2%,     3%); z-index: 3; }
+    .c4 { transform: rotate(-3deg)  translate(-3%,    55%); z-index: 4; }
+    .c5 { transform: rotate(-1deg)  translate(55%,  75%); z-index: 5; }
+    .stack-card:hover {
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), 0 0 16px rgba(161, 138, 231, 0.45);
+        z-index: 100;
+    }
 
-/* Hero Visual */
-.hero-visual {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-
-.hero-showcase {
-    display: flex;
-    flex-direction: column;
-    gap: 2rem;
-    width: 100%;
-    max-width: 450px;
-}
-
-.showcase-card {
-    background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 1rem;
-    padding: 1.5rem;
-    box-shadow: var(--shadow-xl);
-    transition: all 0.3s ease;
-}
-
-
-.showcase-card.primary {
-    /* Animation removed */
-}
-
-.showcase-card.secondary {
-    /* Animation removed */
-}
 
 .card-header {
     display: flex;

@@ -88,44 +88,6 @@
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('styles.css') }}">
-    <style>
-    .screenshot-stack {
-        position: relative;
-        width: 100%;
-        aspect-ratio: 16 / 11;
-        flex-shrink: 0;
-    }
-    .stack-card {
-        position: absolute;
-        width: 60%;
-        aspect-ratio: 16 / 9;
-        left: 5%;
-        top: 50%;
-        margin-top: -25.3125%; /* half card height = (90% × 9/16) / 2; % is relative to parent width */
-        border-radius: 10px;
-        overflow: hidden;
-        border: 1.5px solid rgba(161, 138, 231, 0.35);
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), 0 0 16px rgba(161, 138, 231, 0.2);
-        transition: transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 0.35s ease;
-        cursor: pointer;
-    }
-    .stack-card img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        display: block;
-    }
-    .c1 { transform: rotate(-5deg) translate(-5%,  -50%); z-index: 1; }
-    .c2 { transform: rotate(4deg) translate(50%,    -39%); z-index: 2; }
-    .c3 { transform: rotate(5deg)  translate(2%,     3%); z-index: 3; }
-    .c4 { transform: rotate(-3deg)  translate(-3%,    55%); z-index: 4; }
-    .c5 { transform: rotate(-1deg)  translate(55%,  75%); z-index: 5; }
-    .stack-card:hover {
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), 0 0 16px rgba(161, 138, 231, 0.45);
-        z-index: 100;
-    }
-
-    </style>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 
