@@ -13,7 +13,6 @@ const sendGA = (name, params = {}) => {
 // figure out where the CTA lives
 const areaFor = (el) => {
     if (!el) return "unknown";
-    if (el.id === "buildAppBtn" || el.closest("#buildAppBtn")) return "ai_app_builder";
     if (el.closest("nav")) return "navbar";
     if (el.closest("#product")) return "hero";
     if (el.closest(".pricing")) return "pricing";
@@ -37,7 +36,6 @@ document.querySelectorAll(".join-waitlist-btn").forEach((btn) => {
         () => {
             const watchedDemo = sessionStorage.getItem("watched_demo") === "1";
             const clickedLogin = sessionStorage.getItem("clicked_login") === "1"; // clickedLogin
-            const idea = document.getElementById("buildAppInput").value; // get buildAppInput
 
             const info = {
                 cta_text: labelFor(btn),
@@ -46,8 +44,6 @@ document.querySelectorAll(".join-waitlist-btn").forEach((btn) => {
                 watched_demo_before: watchedDemo ? "yes" : "no",
                 clicked_login_before: clickedLogin ? "yes" : "no",
             };
-
-            if (idea) info.cta_idea = idea;
 
             // keep for the modal attribution
             lastWaitlistTrigger = info;
