@@ -1,19 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-YDY6J4DY62"></script>
-    <script>
-        window.dataLayer = window.dataLayer || [];
-
-        function gtag() {
-            dataLayer.push(arguments);
-        }
-
-        gtag('js', new Date());
-
-        gtag('config', 'G-YDY6J4DY62');
-    </script>
+    <script defer src="https://cloud.umami.is/script.js"
+            data-website-id="a89fd2d8-03b0-4a83-9628-d057e718c55a"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
@@ -164,7 +153,8 @@
             <!-- Right actions: stack on mobile, inline on desktop -->
             <div class="d-grid gap-2 d-md-inline-flex">
                 <a class="btn btn-primary d-inline-flex align-items-center gap-2"
-                   href="/chainlit/auth/oauth/google">
+                   href="/chainlit/auth/oauth/google"
+                   data-umami-event="Sign In with Google">
                     <span class="spinner-border spinner-border-sm d-none"
                           role="status"
                           aria-hidden="true"></span>
@@ -175,7 +165,7 @@
                     >
                     <span class="oauth-label">Sign in with Google</span>
                 </a>
-                <a id="loginLink" href="/login" class="btn btn-outline-breba">Login</a>
+                <a id="loginLink" href="/login" class="btn btn-outline-breba" data-umami-event="Login">Login</a>
             </div>
         </div>
     </div>
@@ -260,7 +250,8 @@
                    class="btn-secondary btn-large"
                    data-bs-toggle="modal"
                    data-bs-target="#demoModal"
-                   data-video="https://www.youtube.com/embed/Txv-lUdk1LM?rel=0&autoplay=1">
+                   data-video="https://www.youtube.com/embed/Txv-lUdk1LM?rel=0&autoplay=1"
+                   data-umami-event="Watch Demo">
                     <i class="fas fa-play"></i>
                     <span>Watch Demo</span>
                 </a>
@@ -268,9 +259,12 @@
 
         </div>
         <div class="screenshot-stack">
-            <div class="stack-card c1"><img src="{{ asset('screenshot-dirtroads.jpg') }}" alt="Dirtroad Guardians landing page"></div>
-            <div class="stack-card c2"><img src="{{ asset('screenshot-arttent.jpg') }}" alt="Arttent landing page"></div>
-            <div class="stack-card c3"><img src="{{ asset('screenshot-guadaurikidsclub.jpg') }}" alt="Guadauri Kids Club landing page"></div>
+            <div class="stack-card c1"><img src="{{ asset('screenshot-dirtroads.jpg') }}"
+                                            alt="Dirtroad Guardians landing page"></div>
+            <div class="stack-card c2"><img src="{{ asset('screenshot-arttent.jpg') }}" alt="Arttent landing page">
+            </div>
+            <div class="stack-card c3"><img src="{{ asset('screenshot-guadaurikidsclub.jpg') }}"
+                                            alt="Guadauri Kids Club landing page"></div>
             <div class="stack-card c4"><img src="{{ asset('screenshot-pets.jpg') }}" alt="Pets landing page"></div>
             <div class="stack-card c5"><img src="{{ asset('screenshot-triz.jpg') }}" alt="Triz landing page"></div>
         </div>
@@ -306,7 +300,8 @@
                 </div>
                 <div class="feature-content">
                     <h3>Turn your idea into a landing page</h3>
-                    <p>Describe your offer and Breba builds the page for you. Focus on your message — layout, sections, and structure are handled automatically.</p>
+                    <p>Describe your offer and Breba builds the page for you. Focus on your message — layout, sections,
+                        and structure are handled automatically.</p>
 
                 </div>
             </div>
@@ -493,7 +488,9 @@
                 </div>
                 <div id="collapseOne" class="accordion-collapse collapse" aria-labelledby="headingOne">
                     <div class="accordion-body px-0">
-                        <p>Breba is an AI landing page builder that helps you create and publish landing pages without coding. Describe what you want, and Breba's AI generates the page, connects key components (like forms and analytics), and deploys it to a shareable URL.</p>
+                        <p>Breba is an AI landing page builder that helps you create and publish landing pages without
+                            coding. Describe what you want, and Breba's AI generates the page, connects key components
+                            (like forms and analytics), and deploys it to a shareable URL.</p>
                     </div>
                 </div>
             </div>
@@ -667,6 +664,5 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="{{ asset('script.js') }}"></script>
-<script src="{{ asset('home_analytics.js') }}"></script>
 </body>
 </html>
