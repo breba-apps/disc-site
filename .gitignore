@@ -49,3 +49,6 @@ $RECYCLE.BIN/
 
 # === Monogo ===
 mongo-data/
+
+# === Vibe Coding metadata ===
+.aider*
