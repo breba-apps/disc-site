@@ -26,12 +26,17 @@ if [ ! "$(docker ps -q -f name=$MONGO_CONTAINER)" ]; then
     docker start $MONGO_CONTAINER
   else
     echo "Creating new MongoDB container with image $MONGO_IMAGE..."
+    DEFAULT_DIR="$( cd .. && pwd )/mongo-data"
+    read -p "Enter path for mongo-data directory [$DEFAULT_DIR]: " MONGO_DATA_DIR
+    MONGO_DATA_DIR=${MONGO_DATA_DIR:-"$DEFAULT_DIR"}
+
+    # Run the container
     docker run -d \
-      --name $MONGO_CONTAINER \
-      -p $MONGO_PORT:27017 \
-      -v "$(pwd)/mongo-data:/data/db" \
-      $MONGO_IMAGE
-  fi
+      --name "$MONGO_CONTAINER" \
+      -p "$MONGO_PORT:27017" \
+      -v "$MONGO_DATA_DIR:/data/db" \
+      "$MONGO_IMAGE"
+    fi
 else
   echo "MongoDB container already running."
 fi
