@@ -5,9 +5,9 @@ import uuid
 import pytest
 import pytest_asyncio
 from beanie import init_beanie
-from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
 
+from breba_app.config import load_env
 from breba_app.controllers.product_controller import delete_product_and_deployments
 from breba_app.models.deployment import Deployment
 from breba_app.models.product import Product
@@ -23,7 +23,7 @@ def event_loop():
 
 @pytest_asyncio.fixture
 async def init_test_db():
-    load_dotenv()
+    load_env(".env.integration_tests")
     MONGO_URI = os.getenv("MONGO_URI")
     client = AsyncIOMotorClient(MONGO_URI)
     db = client.get_database('breba-test')

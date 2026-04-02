@@ -1,19 +1,13 @@
-import datetime
-import re
-
 import json
-import os
+import re
 from pathlib import Path
 
-import pytest
-from unittest.mock import patch
-
-from dotenv import load_dotenv
 from langchain_core.messages import BaseMessage, message_to_dict
 from langchain_openai import ChatOpenAI
 
-load_dotenv()
+from breba_app.config import load_env
 
+load_env()
 
 
 def normalize_kwargs(args):
@@ -68,7 +62,6 @@ class RecordingChatOpenAI(ChatOpenAI):
             return_val = await super().ainvoke(*args, **kwargs)
             self._record_call("ainvoke", return_val, *args, **kwargs)
         return return_val
-
 
 # @pytest.mark.asyncio
 # async def test_stream_has_current_date(tmp_path):

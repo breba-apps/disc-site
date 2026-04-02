@@ -9,11 +9,19 @@ from breba_app.models.deployment import Deployment
 from breba_app.models.product import Product
 from breba_app.models.user import User
 
-DOT_ENV_PATH = Path("../../.secrets/breba/")
+DOT_ENV_PATH = Path(".secrets/breba/")
 
 def load_env(file: str | None = None):
     file = file or ".env"
-    load_dotenv(DOT_ENV_PATH / file)
+    working_dir = Path(".").resolve()
+
+    # try going up the directory tree until we find .secrets directory
+    while not (working_dir / DOT_ENV_PATH).exists():
+        working_dir = working_dir.parent
+        if working_dir == Path("/"):
+            raise FileNotFoundError(".secrets directory not found")
+
+    load_dotenv(working_dir / DOT_ENV_PATH / file)
 
 load_env()
 

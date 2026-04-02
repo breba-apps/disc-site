@@ -10,13 +10,10 @@ from typing import TypedDict, Union
 
 import boto3
 from botocore.exceptions import BotoCoreError, ClientError
-from dotenv import load_dotenv
 
 from breba_app.config import INDEX_FILE_NAME
 from breba_app.filesystem import InMemoryFileStore, FileWrite, FileStore
 from breba_app.filesystem.versioned_r2 import VersionedR2FileSystem
-
-load_dotenv()
 
 logger = logging.getLogger(__name__)
 

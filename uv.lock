@@ -424,6 +424,7 @@ dependencies = [
     { name = "pillow" },
     { name = "protobuf" },
     { name = "pydantic" },
+    { name = "pytest-mock" },
     { name = "python-dotenv" },
     { name = "starlette" },
     { name = "typing-extensions" },
@@ -460,6 +461,7 @@ requires-dist = [
     { name = "pillow", specifier = ">=12.1.1" },
     { name = "protobuf", specifier = "~=5.29.5" },
     { name = "pydantic", specifier = "==2.12.5" },
+    { name = "pytest-mock", specifier = ">=3.15.1" },
     { name = "python-dotenv", specifier = "==1.1.0" },
     { name = "starlette", specifier = "==0.47.2" },
     { name = "typing-extensions", specifier = ">=4.14.0" },
@@ -2293,6 +2295,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/d0/d4/14f53324cb1a6381bef29d698987625d80052bb33932d8e7cbf9b337b17c/pytest_asyncio-1.0.0.tar.gz", hash = "sha256:d15463d13f4456e1ead2594520216b225a16f781e144f8fdf6c5bb4667c48b3f", size = 46960, upload-time = "2025-05-26T04:54:40.484Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/30/05/ce271016e351fddc8399e546f6e23761967ee09c8c568bbfbecb0c150171/pytest_asyncio-1.0.0-py3-none-any.whl", hash = "sha256:4f024da9f1ef945e680dc68610b52550e36590a67fd31bb3b4943979a1f90ef3", size = 15976, upload-time = "2025-05-26T04:54:39.035Z" },
+]
+
+[[package]]
+name = "pytest-mock"
+version = "3.15.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pytest" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/68/14/eb014d26be205d38ad5ad20d9a80f7d201472e08167f0bb4361e251084a9/pytest_mock-3.15.1.tar.gz", hash = "sha256:1849a238f6f396da19762269de72cb1814ab44416fa73a8686deac10b0d87a0f", size = 34036, upload-time = "2025-09-16T16:37:27.081Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5a/cc/06253936f4a7fa2e0f48dfe6d851d9c56df896a9ab09ac019d70b760619c/pytest_mock-3.15.1-py3-none-any.whl", hash = "sha256:0a25e2eb88fe5168d535041d09a4529a188176ae608a6d249ee65abc0949630d", size = 10095, upload-time = "2025-09-16T16:37:25.734Z" },
 ]
 
 [[package]]
