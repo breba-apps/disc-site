@@ -536,25 +536,6 @@ async def upload_site(user_name: str, session_id: str, site_name: str):
     return get_public_url(site_name)
 
 
-async def upload_preview(user_name: str, session_id: str, file: FileWrite):
-    """
-    Uploads site to google cloud
-    Example: upload_site("/Users/yason/breba/disc-site/sites/test-site", "test-site")
-    :param user_name: username
-    :param session_id: session id used for locating site files
-    :return: public url of deployed site
-    """
-    filesystem = VersionedR2FileSystem(
-        bucket_name=Settings.USERS_BUCKET,
-        root_prefix=f"{user_name}/{session_id}",
-        s3_client=get_s3_client(),
-    )
-
-    # TODO: public_s3_bucket.write(file)
-
-    return get_public_url(session_id)
-
-
 async def delete_uploaded_sites(site_names: list[str]):
     keys = []
     # Collect all the files for all the sites
