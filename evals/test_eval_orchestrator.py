@@ -4,16 +4,16 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-from dotenv import load_dotenv
 from openai import Client
 
 from breba_app.coder_agent.agent import run_coder_agent, FileStore
 from breba_app.coder_agent.baml_client.types import LLMMessage
+from breba_app.config import load_env
 from breba_app.filesystem import in_memory_store, InMemoryFileStore
 from breba_app.orchestrator import handle_user_message, save_state, OrchestratorState, handle_file_upload
 from evals.loader import load_messages, load_initial_files, load_evals
 
-load_dotenv()
+load_env()
 
 client = Client()
 

@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 from beanie import init_beanie
 from dotenv import load_dotenv
@@ -8,7 +9,13 @@ from breba_app.models.deployment import Deployment
 from breba_app.models.product import Product
 from breba_app.models.user import User
 
-load_dotenv()
+DOT_ENV_PATH = Path("../../.secrets/breba/")
+
+def load_env(file: str | None = None):
+    file = file or ".env"
+    load_dotenv(DOT_ENV_PATH / file)
+
+load_env()
 
 MONGO_URI = os.getenv("MONGO_URI")
 
