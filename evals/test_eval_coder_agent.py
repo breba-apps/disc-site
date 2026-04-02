@@ -11,7 +11,7 @@ from breba_app.config import load_env
 from breba_app.filesystem import in_memory_store
 from evals.loader import load_messages, load_initial_files, load_evals
 
-load_env()
+load_env(".env.integration_tests")
 
 client = Client()
 

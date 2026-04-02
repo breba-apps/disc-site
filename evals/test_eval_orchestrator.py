@@ -13,7 +13,7 @@ from breba_app.filesystem import in_memory_store, InMemoryFileStore
 from breba_app.orchestrator import handle_user_message, save_state, OrchestratorState, handle_file_upload
 from evals.loader import load_messages, load_initial_files, load_evals
 
-load_env()
+load_env(".env.integration_tests")
 
 client = Client()
 
@@ -119,7 +119,7 @@ async def test_coder_create_new_website() -> None:
     user_name = "eval_user"
     product_id = case
 
-    save_state(user_name, product_id, OrchestratorState([], store))
+    save_state(user_name, product_id, OrchestratorState([], "", store))
 
     # Typically your case_dir/messages has at least one user message.
     last_user_msg = next(m.content for m in reversed(messages) if m.role == "user")
