@@ -10,6 +10,9 @@ from breba_app.models.product import Product
 from breba_app.models.user import User
 
 DOT_ENV_PATH = Path(".secrets/breba/")
+SPEC_FILE_NAME = "spec.txt"
+INDEX_FILE_NAME = "index.html"
+
 
 def load_env(file: str | None = None):
     file = file or ".env"
@@ -23,16 +26,12 @@ def load_env(file: str | None = None):
 
     load_dotenv(working_dir / DOT_ENV_PATH / file)
 
-load_env()
-
-MONGO_URI = os.getenv("MONGO_URI")
-
-SPEC_FILE_NAME = "spec.txt"
-INDEX_FILE_NAME = "index.html"
-
 
 async def init_db():
-    client = AsyncIOMotorClient(MONGO_URI)
+    mongo_uri = os.getenv("MONGO_URI")
+    if not mongo_uri:
+        raise ValueError("MONGO_URI not found in environment variables. Make sure to run load_env() first.")
+    client = AsyncIOMotorClient(mongo_uri)
     db = client.get_database('breba')
 
     User.model_rebuild(_types_namespace={"Product": Product})

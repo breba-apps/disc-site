@@ -2,11 +2,7 @@ import os
 
 import pytest
 
-from breba_app.config import load_env
-
-mock_stat = {
-    "exists": False
-}
+from breba_app.config import load_env, init_db
 
 
 def test_load_env():
@@ -19,3 +15,8 @@ def test_secrets_not_found(mocker):
 
     with pytest.raises(FileNotFoundError):
         load_env()
+
+@pytest.mark.asyncio
+async def test_init_db__without_load_env():
+    with pytest.raises(ValueError):
+        await init_db()
