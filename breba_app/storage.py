@@ -5,6 +5,7 @@ import logging
 import mimetypes
 import os
 from collections import defaultdict
+from functools import cache
 from pathlib import Path
 from typing import TypedDict, Union
 
@@ -19,23 +20,75 @@ logger = logging.getLogger(__name__)
 
 MAX_FILE_SIZE = 1024 * 1024 * 32  # 32MB is cloud run limit
 
-USERS_BUCKET_NAME: str = os.getenv("USERS_BUCKET")
-CLOUDFLARE_ENDPOINT: str = os.getenv("CLOUDFLARE_ENDPOINT")
-CDN_BASE_URL: str = os.getenv("CDN_BASE_URL") or "https://cdn.breba.app"
-
-PUBLIC_BUCKET_NAME: str = os.getenv("PUBLIC_BUCKET")
 ASSETS_PATH = "assets"
 
-session = boto3.session.Session()
-# Uses AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY from the environment
-s3_client = session.client(
-    service_name='s3',
-    region_name='auto',
-    endpoint_url=CLOUDFLARE_ENDPOINT,
-)
-s3 = session.resource("s3", endpoint_url=CLOUDFLARE_ENDPOINT)
-s3_bucket = s3.Bucket(USERS_BUCKET_NAME)
-public_s3_bucket = s3.Bucket(PUBLIC_BUCKET_NAME)
+
+def _required_env(name: str) -> str:
+    value = os.getenv(name)
+    if not value:
+        raise RuntimeError(f"{name} is not set")
+    return value
+
+
+class _Settings:
+    @staticmethod
+    @cache
+    def _values() -> dict[str, str]:
+        return {
+            "USERS_BUCKET": _required_env("USERS_BUCKET"),
+            "PUBLIC_BUCKET": _required_env("PUBLIC_BUCKET"),
+            "CLOUDFLARE_ENDPOINT": _required_env("CLOUDFLARE_ENDPOINT"),
+            "CDN_BASE_URL": os.getenv("CDN_BASE_URL", "https://cdn.breba.app"),
+            "MONGO_URI": _required_env("MONGO_URI"),
+        }
+
+    def __getattr__(self, name: str) -> str:
+        try:
+            return self._values()[name]
+        except KeyError as e:
+            raise AttributeError(f"Settings has no attribute {name!r}") from e
+
+    def clear_cache(self) -> None:
+        self._values.cache_clear()
+
+
+Settings = _Settings()
+
+
+@cache
+def get_boto3_session():
+    return boto3.session.Session()
+
+
+@cache
+def get_s3_client():
+    return get_boto3_session().client(
+        service_name="s3",
+        region_name="auto",
+        endpoint_url=Settings.CLOUDFLARE_ENDPOINT,
+    )
+
+
+@cache
+def get_s3_resource():
+    return get_boto3_session().resource(
+        "s3",
+        endpoint_url=Settings.CLOUDFLARE_ENDPOINT,
+    )
+
+
+def get_users_bucket():
+    return get_s3_resource().Bucket(Settings.USERS_BUCKET)
+
+
+def get_public_bucket():
+    return get_s3_resource().Bucket(Settings.PUBLIC_BUCKET)
+
+
+def clear_storage_caches() -> None:
+    get_boto3_session.cache_clear()
+    get_s3_client.cache_clear()
+    get_s3_resource.cache_clear()
 
 
 class FileMetadata(TypedDict):
@@ -50,14 +103,14 @@ class PreviewFileStore(FileStore):
     """
     Write-only FileStore that uploads preview artifacts to a public S3/R2 bucket.
 
-    - Bucket is provided (e.g. s3.Bucket(PUBLIC_BUCKET_NAME))
+    - Bucket is provided (e.g. s3.Bucket(Settings.PUBLIC_BUCKET))
     - Keys are written under: {session_id}/{path}
     - write_text() is non-blocking: it schedules an upload.
     - Call await flush() to ensure all writes finished (and raise if any failed).
     """
 
     def __init__(self, *, product_id: str, bucket=None):
-        self._bucket = bucket or public_s3_bucket
+        self._bucket = bucket or get_public_bucket()
         self._product_id = product_id.strip("/")
 
         self._pending: set[asyncio.Task] = set()
@@ -131,7 +184,7 @@ class PreviewFileStore(FileStore):
 
 
 def public_file_url(user_name: str, session_id: str, file_name: str) -> str:
-    return f"{CDN_BASE_URL}/{user_name}/{session_id}/{file_name}"
+    return f"{Settings.CDN_BASE_URL}/{user_name}/{session_id}/{file_name}"
 
 
 def _join_prefix(base: str) -> str:
@@ -177,8 +230,9 @@ async def _copy_files(source_bucket, target_bucket, files: list[str], target_pre
 
 
 def _user_session_object(user_name: str, session_id: str, relative_path: str, description: str | None = None):
+    s3 = get_s3_resource()
     key = f"{user_name}/{session_id}/{relative_path}"
-    obj = s3.Object(USERS_BUCKET_NAME, key)
+    obj = s3.Object(Settings.USERS_BUCKET, key)
     if description:
         obj.metadata.update({"description": description})
     return obj
@@ -196,14 +250,14 @@ def save_image_to_private(user_name: str, session_id: str, image_name: str, cont
     key = f"{user_name}/{session_id}/{ASSETS_PATH}/{image_name}"
 
     try:
-        s3_client.put_object(
-            Bucket=USERS_BUCKET_NAME,
+        get_s3_client().put_object(
+            Bucket=Settings.USERS_BUCKET,
             Key=key,
             Body=content,
             ContentType="image/png",
             Metadata={"description": description} if description else {}
         )
-        logger.info(f"Uploaded image to {USERS_BUCKET_NAME}/{key}")
+        logger.info(f"Uploaded image to {Settings.USERS_BUCKET}/{key}")
     except (BotoCoreError, ClientError) as e:
         logger.error(f"Error uploading image: {e}")
         raise
@@ -239,14 +293,14 @@ def save_image_file_to_private(user_name: str, session_id: str, file_name: str, 
         extra_args["Metadata"] = {"description": description}
 
     try:
-        s3_client.upload_file(
+        get_s3_client().upload_file(
             Filename=file_path,
-            Bucket=USERS_BUCKET_NAME,
+            Bucket=Settings.USERS_BUCKET,
             Key=key,
             ExtraArgs=extra_args
         )
-        logger.info(f"Uploaded file to {USERS_BUCKET_NAME}/{key}")
-        return f"{CDN_BASE_URL}/{key}"
+        logger.info(f"Uploaded file to {Settings.USERS_BUCKET}/{key}")
+        return f"{Settings.CDN_BASE_URL}/{key}"
     except (BotoCoreError, ClientError) as e:
         logger.info(f"Error uploading file: {e}")
         raise
@@ -254,27 +308,27 @@ def save_image_file_to_private(user_name: str, session_id: str, file_name: str, 
 
 async def list_versions(user_name: str, session_id: str) -> list[int]:
     filesystem = VersionedR2FileSystem(
-        bucket_name=USERS_BUCKET_NAME,
+        bucket_name=Settings.USERS_BUCKET,
         root_prefix=f"{user_name}/{session_id}",
-        s3_client=s3_client,
+        s3_client=get_s3_client(),
     )
     return await asyncio.to_thread(filesystem.list_versions)
 
 
 async def get_active_version(user_name: str, session_id: str) -> int:
     filesystem = VersionedR2FileSystem(
-        bucket_name=USERS_BUCKET_NAME,
+        bucket_name=Settings.USERS_BUCKET,
         root_prefix=f"{user_name}/{session_id}",
-        s3_client=s3_client,
+        s3_client=get_s3_client(),
     )
     return await asyncio.to_thread(filesystem.get_version)
 
 
 async def set_version_active(user_name: str, session_id: str, version: int) -> None:
     filesystem = VersionedR2FileSystem(
-        bucket_name=USERS_BUCKET_NAME,
+        bucket_name=Settings.USERS_BUCKET,
         root_prefix=f"{user_name}/{session_id}",
-        s3_client=s3_client,
+        s3_client=get_s3_client(),
     )
     await asyncio.to_thread(filesystem.set_version, version)
 
@@ -299,18 +353,18 @@ async def save_files(user_name: str, session_id: str, files: list[FileWrite], ve
     :return: The new version number
     """
     filesystem = VersionedR2FileSystem(
-        bucket_name=USERS_BUCKET_NAME,
+        bucket_name=Settings.USERS_BUCKET,
         root_prefix=f"{user_name}/{session_id}",
-        s3_client=s3_client,
+        s3_client=get_s3_client(),
     )
     return await asyncio.to_thread(filesystem.batch_write, files, version)
 
 
 async def read_all_files_in_memory(user_name: str, session_id: str, version: int | None = None):
     filesystem = VersionedR2FileSystem(
-        bucket_name=USERS_BUCKET_NAME,
+        bucket_name=Settings.USERS_BUCKET,
         root_prefix=f"{user_name}/{session_id}",
-        s3_client=s3_client,
+        s3_client=get_s3_client(),
     )
 
     file_paths = filesystem.list_files(version)
@@ -327,9 +381,9 @@ async def read_all_files_in_memory(user_name: str, session_id: str, version: int
 
 async def read_spec_text(user_name: str, session_id: str) -> str | None:
     filesystem = VersionedR2FileSystem(
-        bucket_name=USERS_BUCKET_NAME,
+        bucket_name=Settings.USERS_BUCKET,
         root_prefix=f"{user_name}/{session_id}",
-        s3_client=s3_client,
+        s3_client=get_s3_client(),
     )
     return await filesystem.read_text("spec.txt")
 
@@ -340,9 +394,9 @@ def get_index_html_path(product_id: str) -> str:
 
 async def read_index_html(user_name: str, session_id: str) -> str:
     filesystem = VersionedR2FileSystem(
-        bucket_name=USERS_BUCKET_NAME,
+        bucket_name=Settings.USERS_BUCKET,
         root_prefix=f"{user_name}/{session_id}",
-        s3_client=s3_client,
+        s3_client=get_s3_client(),
     )
     return await filesystem.read_text("index.html")
 
@@ -350,9 +404,9 @@ async def read_index_html(user_name: str, session_id: str) -> str:
 async def save_file_versioned(user_name: str, session_id: str, file_name: str, content: bytes, content_type: str):
     root_prefix = f"{user_name}/{session_id}"
     filesystem = VersionedR2FileSystem(
-        bucket_name=USERS_BUCKET_NAME,
+        bucket_name=Settings.USERS_BUCKET,
         root_prefix=root_prefix,
-        s3_client=s3_client,
+        s3_client=get_s3_client(),
     )
     await asyncio.to_thread(filesystem.write_file, file_name, content, content_type=content_type)
 
@@ -361,15 +415,15 @@ async def load_template(user_name: str, session_id: str, template_name: str):
     source_prefix = f"templates/{template_name}"
 
     def get_file_write(obj):
-        resp = s3_client.get_object(Bucket=USERS_BUCKET_NAME, Key=obj["Key"])
+        resp = get_s3_client().get_object(Bucket=Settings.USERS_BUCKET, Key=obj["Key"])
         data = resp["Body"].read()
         ctype = resp.get("ContentType")
         # This helps maintain path relative to the source prefix
         relative_path = obj["Key"][len(source_prefix):]
         return FileWrite(path=relative_path, content=data, content_type=ctype)
 
-    paginator = s3_client.get_paginator('list_objects_v2')
-    pages = paginator.paginate(Bucket=USERS_BUCKET_NAME, Prefix=source_prefix)
+    paginator = get_s3_client().get_paginator('list_objects_v2')
+    pages = paginator.paginate(Bucket=Settings.USERS_BUCKET, Prefix=source_prefix)
     tasks = []
     # Pagination avoids listing and iterating over all objects. Instead, we just iterate
     for page in pages:
@@ -385,9 +439,9 @@ async def load_template(user_name: str, session_id: str, template_name: str):
 
     root_prefix = f"{user_name}/{session_id}"
     filesystem = VersionedR2FileSystem(
-        bucket_name=USERS_BUCKET_NAME,
+        bucket_name=Settings.USERS_BUCKET,
         root_prefix=root_prefix,
-        s3_client=s3_client,
+        s3_client=get_s3_client(),
     )
     return await asyncio.to_thread(filesystem.batch_write, files)
 
@@ -418,10 +472,11 @@ def list_s3_structured(user_name: str, session_id: str, path: str = None) -> Dir
 
     files = make_dir_tree()
 
-    for obj_summary in s3_bucket.objects.filter(Prefix=full_prefix):
+    users_bucket = get_users_bucket()
+    for obj_summary in users_bucket.objects.filter(Prefix=full_prefix):
         full_key = obj_summary.key
         # You need to explicitly fetch the object to get metadata
-        obj = s3_bucket.Object(full_key)
+        obj = users_bucket.Object(full_key)
         obj_metadata = obj.metadata
         description = obj_metadata.get("description", "No description")
 
@@ -468,15 +523,15 @@ async def upload_site(user_name: str, session_id: str, site_name: str):
     # TODO: convert to async because GCP is a blocking call, we don't want to have to wait
     # TODO: when empty dir is being uploaded, should pass back an error message
     filesystem = VersionedR2FileSystem(
-        bucket_name=USERS_BUCKET_NAME,
+        bucket_name=Settings.USERS_BUCKET,
         root_prefix=f"{user_name}/{session_id}",
-        s3_client=s3_client,
+        s3_client=get_s3_client(),
     )
 
     # Need to get full path to files, because we are copying across buckets
     files = filesystem.list_files(absolute=True)
 
-    await _copy_files(s3_bucket, public_s3_bucket, files, site_name + "/")
+    await _copy_files(get_users_bucket(), get_public_bucket(), files, site_name + "/")
 
     return get_public_url(site_name)
 
@@ -490,9 +545,9 @@ async def upload_preview(user_name: str, session_id: str, file: FileWrite):
     :return: public url of deployed site
     """
     filesystem = VersionedR2FileSystem(
-        bucket_name=USERS_BUCKET_NAME,
+        bucket_name=Settings.USERS_BUCKET,
         root_prefix=f"{user_name}/{session_id}",
-        s3_client=s3_client,
+        s3_client=get_s3_client(),
     )
 
     # TODO: public_s3_bucket.write(file)
@@ -507,12 +562,12 @@ async def delete_uploaded_sites(site_names: list[str]):
         prefix = f"{site_name}/"
         # We are not planning to have more than 100 files for a while
         list_kwargs = {
-            "Bucket": PUBLIC_BUCKET_NAME,
+            "Bucket": Settings.PUBLIC_BUCKET,
             "Prefix": prefix,
             "MaxKeys": 100,
         }
 
-        list_response = s3_client.list_objects_v2(**list_kwargs)
+        list_response = get_s3_client().list_objects_v2(**list_kwargs)
 
         if not list_response.get("Contents"):
             break
@@ -520,17 +575,17 @@ async def delete_uploaded_sites(site_names: list[str]):
         keys += [{"Key": obj["Key"]} for obj in list_response["Contents"]]
 
     if keys:
-        s3_client.delete_objects(
-            Bucket=PUBLIC_BUCKET_NAME,
+        get_s3_client().delete_objects(
+            Bucket=Settings.PUBLIC_BUCKET,
             Delete={"Objects": keys, "Quiet": True}
         )
 
 
 async def has_cloud_storage(user_name: str, session_id: str):
     filesystem = VersionedR2FileSystem(
-        bucket_name=USERS_BUCKET_NAME,
+        bucket_name=Settings.USERS_BUCKET,
         root_prefix=f"{user_name}/{session_id}",
-        s3_client=s3_client,
+        s3_client=get_s3_client(),
     )
     return filesystem.file_exists(INDEX_FILE_NAME)
 
@@ -545,22 +600,22 @@ async def delete_product_files(user_name: str, session_id: str) -> int:
 
         while True:
             list_kwargs = {
-                "Bucket": USERS_BUCKET_NAME,
+                "Bucket": Settings.USERS_BUCKET,
                 "Prefix": prefix,
                 "MaxKeys": 1000,
             }
             if continuation_token:
                 list_kwargs["ContinuationToken"] = continuation_token
 
-            list_response = s3_client.list_objects_v2(**list_kwargs)
+            list_response = get_s3_client().list_objects_v2(**list_kwargs)
 
             if not list_response.get("Contents"):
                 break
 
             keys = [{"Key": obj["Key"]} for obj in list_response["Contents"]]
 
-            delete_response = s3_client.delete_objects(
-                Bucket=USERS_BUCKET_NAME,
+            delete_response = get_s3_client().delete_objects(
+                Bucket=Settings.USERS_BUCKET,
                 Delete={"Objects": keys, "Quiet": True}
             )
 
