@@ -40,5 +40,8 @@ type_map = {
     "types.UplaodAsset": types.UplaodAsset,
     "stream_types.UplaodAsset": stream_types.UplaodAsset,
 
+    "types.UploadToAssets": types.UploadToAssets,
+    "stream_types.UploadToAssets": stream_types.UploadToAssets,
+
 
 }

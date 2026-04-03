@@ -41,7 +41,7 @@ def all_succeeded(checks: typing.Dict[CheckName, Check]) -> bool:
 # #########################################################################
 
 # #########################################################################
-# Generated classes (8)
+# Generated classes (9)
 # #########################################################################
 
 class Coder(BaseModel):
@@ -73,6 +73,12 @@ class UplaodAsset(BaseModel):
     upload_asset: bool = Field(description='User needs to upload assest to be used as part of website contents.')
     inference: bool = Field(description='Always true')
     reason: str = Field(description='Reason why you chose to upload the assets')
+
+class UploadToAssets(BaseModel):
+    image_description: str = Field(description='One sentence description of the image(s) that were uploaded, in context of the conversation.')
+    reason: str = Field(description='One sentence explaining why upload is true or false.')
+    upload: bool = Field(description='True only if the user explicitly wants this file displayed on their website.')
+    problem: str = Field(description='One sentence explaining why the images provided are not suitable for uploading to assets. Empty string when upload is false.')
 
 # #########################################################################
 # Generated type aliases (0)

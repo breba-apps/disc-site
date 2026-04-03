@@ -23,7 +23,7 @@ class StreamState(BaseModel, typing.Generic[StreamStateValueT]):
     value: StreamStateValueT
     state: typing_extensions.Literal["Pending", "Incomplete", "Complete"]
 # #########################################################################
-# Generated classes (8)
+# Generated classes (9)
 # #########################################################################
 
 class Coder(BaseModel):
@@ -55,6 +55,12 @@ class UplaodAsset(BaseModel):
     upload_asset: typing.Optional[bool] = Field(default=None, description='User needs to upload assest to be used as part of website contents.')
     inference: typing.Optional[bool] = Field(default=None, description='Always true')
     reason: typing.Optional[str] = Field(default=None, description='Reason why you chose to upload the assets')
+
+class UploadToAssets(BaseModel):
+    image_description: typing.Optional[str] = Field(default=None, description='One sentence description of the image(s) that were uploaded, in context of the conversation.')
+    reason: typing.Optional[str] = Field(default=None, description='One sentence explaining why upload is true or false.')
+    upload: typing.Optional[bool] = Field(default=None, description='True only if the user explicitly wants this file displayed on their website.')
+    problem: typing.Optional[str] = Field(default=None, description='One sentence explaining why the images provided are not suitable for uploading to assets. Empty string when upload is false.')
 
 # #########################################################################
 # Generated type aliases (0)

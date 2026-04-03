@@ -164,6 +164,20 @@ class BamlSyncClient:
                 "messages": messages,
             })
             return typing.cast(typing.Union["types.UplaodAsset", "types.Inference", "types.QuestionToUser"], __result__.cast_to(types, types, stream_types, False, __runtime__))
+    def ShouldUploadToAssets(self, messages: typing.List["types.LLMMessage"],
+        baml_options: BamlCallOptions = {},
+    ) -> types.UploadToAssets:
+        # Check if on_tick is provided
+        if 'on_tick' in baml_options:
+            __stream__ = self.stream.ShouldUploadToAssets(messages=messages,
+                baml_options=baml_options)
+            return __stream__.get_final_response()
+        else:
+            # Original non-streaming code
+            __result__ = self.__options.merge_options(baml_options).call_function_sync(function_name="ShouldUploadToAssets", args={
+                "messages": messages,
+            })
+            return typing.cast(types.UploadToAssets, __result__.cast_to(types, types, stream_types, False, __runtime__))
     def UserResponseOrCoder(self, messages: typing.List["types.LLMMessage"],spec: str,files: typing.List[str],
         baml_options: BamlCallOptions = {},
     ) -> typing.Union["types.ResponseToUser", "types.Coder"]:
@@ -261,6 +275,18 @@ class BamlStreamClient:
           lambda x: typing.cast(typing.Union["types.UplaodAsset", "types.Inference", "types.QuestionToUser"], x.cast_to(types, types, stream_types, False, __runtime__)),
           __ctx__,
         )
+    def ShouldUploadToAssets(self, messages: typing.List["types.LLMMessage"],
+        baml_options: BamlCallOptions = {},
+    ) -> baml_py.BamlSyncStream[stream_types.UploadToAssets, types.UploadToAssets]:
+        __ctx__, __result__ = self.__options.merge_options(baml_options).create_sync_stream(function_name="ShouldUploadToAssets", args={
+            "messages": messages,
+        })
+        return baml_py.BamlSyncStream[stream_types.UploadToAssets, types.UploadToAssets](
+          __result__,
+          lambda x: typing.cast(stream_types.UploadToAssets, x.cast_to(types, types, stream_types, True, __runtime__)),
+          lambda x: typing.cast(types.UploadToAssets, x.cast_to(types, types, stream_types, False, __runtime__)),
+          __ctx__,
+        )
     def UserResponseOrCoder(self, messages: typing.List["types.LLMMessage"],spec: str,files: typing.List[str],
         baml_options: BamlCallOptions = {},
     ) -> baml_py.BamlSyncStream[typing.Union["stream_types.ResponseToUser", "stream_types.Coder"], typing.Union["types.ResponseToUser", "types.Coder"]]:
@@ -328,6 +354,13 @@ class BamlHttpRequestClient:
             "messages": messages,
         }, mode="request")
         return __result__
+    def ShouldUploadToAssets(self, messages: typing.List["types.LLMMessage"],
+        baml_options: BamlCallOptions = {},
+    ) -> baml_py.baml_py.HTTPRequest:
+        __result__ = self.__options.merge_options(baml_options).create_http_request_sync(function_name="ShouldUploadToAssets", args={
+            "messages": messages,
+        }, mode="request")
+        return __result__
     def UserResponseOrCoder(self, messages: typing.List["types.LLMMessage"],spec: str,files: typing.List[str],
         baml_options: BamlCallOptions = {},
     ) -> baml_py.baml_py.HTTPRequest:
@@ -382,6 +415,13 @@ class BamlHttpStreamRequestClient:
         baml_options: BamlCallOptions = {},
     ) -> baml_py.baml_py.HTTPRequest:
         __result__ = self.__options.merge_options(baml_options).create_http_request_sync(function_name="PickActionForUpload", args={
+            "messages": messages,
+        }, mode="stream")
+        return __result__
+    def ShouldUploadToAssets(self, messages: typing.List["types.LLMMessage"],
+        baml_options: BamlCallOptions = {},
+    ) -> baml_py.baml_py.HTTPRequest:
+        __result__ = self.__options.merge_options(baml_options).create_http_request_sync(function_name="ShouldUploadToAssets", args={
             "messages": messages,
         }, mode="stream")
         return __result__
