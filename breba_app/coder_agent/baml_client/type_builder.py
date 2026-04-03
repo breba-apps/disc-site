@@ -20,7 +20,7 @@ from .globals import DO_NOT_USE_DIRECTLY_UNLESS_YOU_KNOW_WHAT_YOURE_DOING_RUNTIM
 class TypeBuilder(type_builder.TypeBuilder):
     def __init__(self):
         super().__init__(classes=set(
-          ["Coder","FileList","LLMMessage","ResponseToUser",]
+          ["Coder","FileList","ImageClassification","Inference","LLMMessage","QuestionToUser","ResponseToUser","UplaodAsset",]
         ), enums=set(
           []
         ), runtime=DO_NOT_USE_DIRECTLY_UNLESS_YOU_KNOW_WHAT_YOURE_DOING_RUNTIME)
@@ -31,7 +31,7 @@ class TypeBuilder(type_builder.TypeBuilder):
 
 
     # #########################################################################
-    # Generated classes 4
+    # Generated classes 8
     # #########################################################################
 
     @property
@@ -43,12 +43,28 @@ class TypeBuilder(type_builder.TypeBuilder):
         return FileListViewer(self)
 
     @property
+    def ImageClassification(self) -> "ImageClassificationViewer":
+        return ImageClassificationViewer(self)
+
+    @property
+    def Inference(self) -> "InferenceViewer":
+        return InferenceViewer(self)
+
+    @property
     def LLMMessage(self) -> "LLMMessageViewer":
         return LLMMessageViewer(self)
 
     @property
+    def QuestionToUser(self) -> "QuestionToUserViewer":
+        return QuestionToUserViewer(self)
+
+    @property
     def ResponseToUser(self) -> "ResponseToUserViewer":
         return ResponseToUserViewer(self)
+
+    @property
+    def UplaodAsset(self) -> "UplaodAssetViewer":
+        return UplaodAssetViewer(self)
 
 
 
@@ -58,7 +74,7 @@ class TypeBuilder(type_builder.TypeBuilder):
 
 
 # #########################################################################
-# Generated classes 4
+# Generated classes 8
 # #########################################################################
 
 class CoderAst:
@@ -143,11 +159,93 @@ class FileListProperties:
     
 
 
+class ImageClassificationAst:
+    def __init__(self, tb: type_builder.TypeBuilder):
+        _tb = tb._tb # type: ignore (we know how to use this private attribute)
+        self._bldr = _tb.class_("ImageClassification")
+        self._properties: typing.Set[str] = set([  "intent",  "reason",  ])
+        self._props = ImageClassificationProperties(self._bldr, self._properties)
+
+    def type(self) -> baml_py.FieldType:
+        return self._bldr.field()
+
+    @property
+    def props(self) -> "ImageClassificationProperties":
+        return self._props
+
+
+class ImageClassificationViewer(ImageClassificationAst):
+    def __init__(self, tb: type_builder.TypeBuilder):
+        super().__init__(tb)
+
+    
+    def list_properties(self) -> typing.List[typing.Tuple[str, type_builder.ClassPropertyViewer]]:
+        return [(name, type_builder.ClassPropertyViewer(self._bldr.property(name))) for name in self._properties]
+    
+
+
+class ImageClassificationProperties:
+    def __init__(self, bldr: baml_py.ClassBuilder, properties: typing.Set[str]):
+        self.__bldr = bldr
+        self.__properties = properties # type: ignore (we know how to use this private attribute) # noqa: F821
+
+    
+    
+    @property
+    def intent(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("intent"))
+    
+    @property
+    def reason(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("reason"))
+    
+    
+
+
+class InferenceAst:
+    def __init__(self, tb: type_builder.TypeBuilder):
+        _tb = tb._tb # type: ignore (we know how to use this private attribute)
+        self._bldr = _tb.class_("Inference")
+        self._properties: typing.Set[str] = set([  "inference_only",  ])
+        self._props = InferenceProperties(self._bldr, self._properties)
+
+    def type(self) -> baml_py.FieldType:
+        return self._bldr.field()
+
+    @property
+    def props(self) -> "InferenceProperties":
+        return self._props
+
+
+class InferenceViewer(InferenceAst):
+    def __init__(self, tb: type_builder.TypeBuilder):
+        super().__init__(tb)
+
+    
+    def list_properties(self) -> typing.List[typing.Tuple[str, type_builder.ClassPropertyViewer]]:
+        return [(name, type_builder.ClassPropertyViewer(self._bldr.property(name))) for name in self._properties]
+    
+
+
+class InferenceProperties:
+    def __init__(self, bldr: baml_py.ClassBuilder, properties: typing.Set[str]):
+        self.__bldr = bldr
+        self.__properties = properties # type: ignore (we know how to use this private attribute) # noqa: F821
+
+    
+    
+    @property
+    def inference_only(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("inference_only"))
+    
+    
+
+
 class LLMMessageAst:
     def __init__(self, tb: type_builder.TypeBuilder):
         _tb = tb._tb # type: ignore (we know how to use this private attribute)
         self._bldr = _tb.class_("LLMMessage")
-        self._properties: typing.Set[str] = set([  "role",  "content",  ])
+        self._properties: typing.Set[str] = set([  "role",  "content",  "images",  ])
         self._props = LLMMessageProperties(self._bldr, self._properties)
 
     def type(self) -> baml_py.FieldType:
@@ -182,6 +280,49 @@ class LLMMessageProperties:
     @property
     def content(self) -> type_builder.ClassPropertyViewer:
         return type_builder.ClassPropertyViewer(self.__bldr.property("content"))
+    
+    @property
+    def images(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("images"))
+    
+    
+
+
+class QuestionToUserAst:
+    def __init__(self, tb: type_builder.TypeBuilder):
+        _tb = tb._tb # type: ignore (we know how to use this private attribute)
+        self._bldr = _tb.class_("QuestionToUser")
+        self._properties: typing.Set[str] = set([  "response_to_user",  ])
+        self._props = QuestionToUserProperties(self._bldr, self._properties)
+
+    def type(self) -> baml_py.FieldType:
+        return self._bldr.field()
+
+    @property
+    def props(self) -> "QuestionToUserProperties":
+        return self._props
+
+
+class QuestionToUserViewer(QuestionToUserAst):
+    def __init__(self, tb: type_builder.TypeBuilder):
+        super().__init__(tb)
+
+    
+    def list_properties(self) -> typing.List[typing.Tuple[str, type_builder.ClassPropertyViewer]]:
+        return [(name, type_builder.ClassPropertyViewer(self._bldr.property(name))) for name in self._properties]
+    
+
+
+class QuestionToUserProperties:
+    def __init__(self, bldr: baml_py.ClassBuilder, properties: typing.Set[str]):
+        self.__bldr = bldr
+        self.__properties = properties # type: ignore (we know how to use this private attribute) # noqa: F821
+
+    
+    
+    @property
+    def response_to_user(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("response_to_user"))
     
     
 
@@ -221,6 +362,53 @@ class ResponseToUserProperties:
     @property
     def response_to_user(self) -> type_builder.ClassPropertyViewer:
         return type_builder.ClassPropertyViewer(self.__bldr.property("response_to_user"))
+    
+    
+
+
+class UplaodAssetAst:
+    def __init__(self, tb: type_builder.TypeBuilder):
+        _tb = tb._tb # type: ignore (we know how to use this private attribute)
+        self._bldr = _tb.class_("UplaodAsset")
+        self._properties: typing.Set[str] = set([  "upload_asset",  "inference",  "reason",  ])
+        self._props = UplaodAssetProperties(self._bldr, self._properties)
+
+    def type(self) -> baml_py.FieldType:
+        return self._bldr.field()
+
+    @property
+    def props(self) -> "UplaodAssetProperties":
+        return self._props
+
+
+class UplaodAssetViewer(UplaodAssetAst):
+    def __init__(self, tb: type_builder.TypeBuilder):
+        super().__init__(tb)
+
+    
+    def list_properties(self) -> typing.List[typing.Tuple[str, type_builder.ClassPropertyViewer]]:
+        return [(name, type_builder.ClassPropertyViewer(self._bldr.property(name))) for name in self._properties]
+    
+
+
+class UplaodAssetProperties:
+    def __init__(self, bldr: baml_py.ClassBuilder, properties: typing.Set[str]):
+        self.__bldr = bldr
+        self.__properties = properties # type: ignore (we know how to use this private attribute) # noqa: F821
+
+    
+    
+    @property
+    def upload_asset(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("upload_asset"))
+    
+    @property
+    def inference(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("inference"))
+    
+    @property
+    def reason(self) -> type_builder.ClassPropertyViewer:
+        return type_builder.ClassPropertyViewer(self.__bldr.property("reason"))
     
     
 

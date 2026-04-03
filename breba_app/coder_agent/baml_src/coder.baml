@@ -2,6 +2,7 @@
 class LLMMessage {
   role "user" | "assistant"
   content string
+  images image[]?
 }
 
 class FileList {

@@ -23,7 +23,7 @@ class StreamState(BaseModel, typing.Generic[StreamStateValueT]):
     value: StreamStateValueT
     state: typing_extensions.Literal["Pending", "Incomplete", "Complete"]
 # #########################################################################
-# Generated classes (4)
+# Generated classes (8)
 # #########################################################################
 
 class Coder(BaseModel):
@@ -33,12 +33,28 @@ class FileList(BaseModel):
     reasoning: typing.Optional[str] = Field(default=None, description='Explanation of why these files need to be edited or not in one short sentence.')
     files: typing.List[str] = Field(description='List of file paths to edit.')
 
+class ImageClassification(BaseModel):
+    intent: typing.Optional[str] = Field(default=None, description='User intent for the upload')
+    reason: typing.Optional[str] = Field(default=None, description='Reason why you chose this intent')
+
+class Inference(BaseModel):
+    inference_only: typing.Optional[bool] = Field(default=None, description='Always true')
+
 class LLMMessage(BaseModel):
     role: typing.Optional[typing.Union[typing_extensions.Literal['user'], typing_extensions.Literal['assistant']]] = None
     content: typing.Optional[str] = None
+    images: typing.Optional[typing.List[baml_py.Image]] = None
+
+class QuestionToUser(BaseModel):
+    response_to_user: typing.Optional[str] = Field(default=None, description='Clarification of the issue with the request')
 
 class ResponseToUser(BaseModel):
     response_to_user: typing.Optional[str] = None
+
+class UplaodAsset(BaseModel):
+    upload_asset: typing.Optional[bool] = Field(default=None, description='User needs to upload assest to be used as part of website contents.')
+    inference: typing.Optional[bool] = Field(default=None, description='Always true')
+    reason: typing.Optional[str] = Field(default=None, description='Reason why you chose to upload the assets')
 
 # #########################################################################
 # Generated type aliases (0)

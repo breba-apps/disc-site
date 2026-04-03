@@ -41,7 +41,7 @@ def all_succeeded(checks: typing.Dict[CheckName, Check]) -> bool:
 # #########################################################################
 
 # #########################################################################
-# Generated classes (4)
+# Generated classes (8)
 # #########################################################################
 
 class Coder(BaseModel):
@@ -51,12 +51,28 @@ class FileList(BaseModel):
     reasoning: str = Field(description='Explanation of why these files need to be edited or not in one short sentence.')
     files: typing.List[str] = Field(description='List of file paths to edit.')
 
+class ImageClassification(BaseModel):
+    intent: str = Field(description='User intent for the upload')
+    reason: str = Field(description='Reason why you chose this intent')
+
+class Inference(BaseModel):
+    inference_only: bool = Field(description='Always true')
+
 class LLMMessage(BaseModel):
     role: typing.Union[typing_extensions.Literal['user'], typing_extensions.Literal['assistant']]
     content: str
+    images: typing.Optional[typing.List[baml_py.Image]] = None
+
+class QuestionToUser(BaseModel):
+    response_to_user: str = Field(description='Clarification of the issue with the request')
 
 class ResponseToUser(BaseModel):
     response_to_user: str
+
+class UplaodAsset(BaseModel):
+    upload_asset: bool = Field(description='User needs to upload assest to be used as part of website contents.')
+    inference: bool = Field(description='Always true')
+    reason: str = Field(description='Reason why you chose to upload the assets')
 
 # #########################################################################
 # Generated type aliases (0)
