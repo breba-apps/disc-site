@@ -164,6 +164,11 @@ async def handle_user_message(user_name: str, product_id: str, message: str,
 @agent_task
 async def handle_file_upload(user_name: str, product_id, files: list[tuple[str, str]], message: str,
                              coder_completed_callback, stream_to_user_callback):
+    # TODO: First we need to group files by type:
+    #  Image files need to go to ShouldUploadToAssets method from coder agent baml code.
+    #  If the files are deemed to be assets for upload, we will upload them
+    #  If the UploadToAssets produces says there there is a problem, we will send the problem as message to the user.
+    #  Non-image file simply get uploaded to assets folder using upload_file method.
     try:
         uploaded_paths = await asyncio.gather(*(
             upload_file(user_name=user_name, product_id=product_id, file_path=Path(file_tuple[0]),
@@ -179,9 +184,6 @@ async def handle_file_upload(user_name: str, product_id, files: list[tuple[str, 
                                       stream_to_user_callback=stream_to_user_callback)
         else:
             update_status("Something went wrong uploading files. Please try again, or contact support.")
-            items = [1, 2, 3]
-            for item in items:
-                return
     except ValueError as e:
         update_status(str(e))
     except Exception as e:

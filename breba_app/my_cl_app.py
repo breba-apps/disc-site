@@ -259,8 +259,6 @@ async def respond(message: Message):
     product_id = cl.user_session.get("product_id")
     user_name = cl.user_session.get("user").identifier
 
-    # TODO: Testcases: 1) When uploading files without a message, need to ask what do do with the file
-    #  2) when uploading files, but the message is contradictory, need to ask what is wrong (for example upload 4 files, but user says to add logo)
     if len(message.elements) > 0:
         elements = list(message.elements or [])
         file_tuples = [(el.path, el.name) for el in elements]
