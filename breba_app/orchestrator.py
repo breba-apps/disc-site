@@ -186,7 +186,6 @@ async def handle_file_upload(user_name: str, product_id, files: list[tuple[str, 
                             file_name=file_tuple[1], description=message) for file_tuple in non_image_files))
             uploaded_paths.extend(non_image_paths)
 
-        enriched_message = message
         if image_files:
             def _to_baml_image(file_tuple) -> Image:
                 path, name = file_tuple
@@ -210,18 +209,13 @@ async def handle_file_upload(user_name: str, product_id, files: list[tuple[str, 
                     upload_file(user_name=user_name, product_id=product_id, file_path=Path(file_tuple[0]),
                                 file_name=file_tuple[1], description=message) for file_tuple in image_files))
                 uploaded_paths.extend(image_paths)
-            else:
-                enriched_message = (
-                    f"The user uploaded images for reference: {upload_intent.image_description}\n\n{message}"
-                )
 
         if uploaded_paths or image_files:
             if uploaded_paths:
                 files_block = "\n".join(f"- {p}" for p in uploaded_paths)
-                final_message = f"Here are newly uploaded files:\n{files_block}\n\n{enriched_message}"
-            else:
-                final_message = enriched_message
-            await handle_user_message(user_name, product_id, final_message,
+                message = f"Here are newly uploaded files:\n{files_block}\n\n{message}"
+
+            await handle_user_message(user_name, product_id, message,
                                       coder_completed_callback=coder_completed_callback,
                                       stream_to_user_callback=stream_to_user_callback)
         else:
