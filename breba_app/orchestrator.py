@@ -1,13 +1,17 @@
 import asyncio
 import logging
+import mimetypes
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 from typing import AsyncIterator
 
-from baml_py import BamlStream
+import base64
+
+from baml_py import BamlStream, Image
 
 from breba_app.coder_agent.agent import stream_user_response_or_coder, run_coder_agent, generate_executive_summary
+from breba_app.coder_agent.baml_client.async_client import b
 from breba_app.coder_agent.baml_client.stream_types import Coder as CoderStream, ResponseToUser as ResponseToUserStream
 from breba_app.coder_agent.baml_client.types import LLMMessage, Coder, ResponseToUser
 from breba_app.config import INDEX_FILE_NAME
@@ -164,22 +168,60 @@ async def handle_user_message(user_name: str, product_id: str, message: str,
 @agent_task
 async def handle_file_upload(user_name: str, product_id, files: list[tuple[str, str]], message: str,
                              coder_completed_callback, stream_to_user_callback):
-    # TODO: First we need to group files by type:
-    #  Image files need to go to ShouldUploadToAssets method from coder agent baml code.
-    #  If the files are deemed to be assets for upload, we will upload them
-    #  If the UploadToAssets produces says there there is a problem, we will send the problem as message to the user.
-    #  Non-image file simply get uploaded to assets folder using upload_file method.
-    try:
-        uploaded_paths = await asyncio.gather(*(
-            upload_file(user_name=user_name, product_id=product_id, file_path=Path(file_tuple[0]),
-                        file_name=file_tuple[1],
-                        description=message) for file_tuple in files))
+    image_files = []
+    non_image_files = []
+    for file_tuple in files:
+        content_type, _ = mimetypes.guess_type(file_tuple[1])
+        if content_type and content_type.startswith("image/"):
+            image_files.append(file_tuple)
+        else:
+            non_image_files.append(file_tuple)
 
-        if uploaded_paths:
-            files_block = "\n".join(f"- {p}" for p in uploaded_paths)
-            message = (f"Here are newly uploaded files:\n{files_block}\n\n"
-                       f"{message}")
-            await handle_user_message(user_name, product_id, message,
+    try:
+        uploaded_paths = []
+
+        if non_image_files:
+            non_image_paths = await asyncio.gather(*(
+                upload_file(user_name=user_name, product_id=product_id, file_path=Path(file_tuple[0]),
+                            file_name=file_tuple[1], description=message) for file_tuple in non_image_files))
+            uploaded_paths.extend(non_image_paths)
+
+        enriched_message = message
+        if image_files:
+            def _to_baml_image(file_tuple) -> Image:
+                path, name = file_tuple
+                content_type, _ = mimetypes.guess_type(name)
+                media_type = content_type or "image/jpeg"
+                return Image.from_base64(media_type, base64.b64encode(Path(path).read_bytes()).decode())
+
+            orchestrator_state = load_state(user_name, product_id)
+            messages_for_intent = orchestrator_state.messages + [
+                LLMMessage(role="user", content=message,
+                           images=[_to_baml_image(ft) for ft in image_files])
+            ]
+            upload_intent = await b.ShouldUploadToAssets(messages_for_intent)
+
+            if upload_intent.problem:
+                await stream_to_user_callback(upload_intent.problem)
+                return
+
+            if upload_intent.upload:
+                image_paths = await asyncio.gather(*(
+                    upload_file(user_name=user_name, product_id=product_id, file_path=Path(file_tuple[0]),
+                                file_name=file_tuple[1], description=message) for file_tuple in image_files))
+                uploaded_paths.extend(image_paths)
+            else:
+                enriched_message = (
+                    f"The user uploaded images for reference: {upload_intent.image_description}\n\n{message}"
+                )
+
+        if uploaded_paths or image_files:
+            if uploaded_paths:
+                files_block = "\n".join(f"- {p}" for p in uploaded_paths)
+                final_message = f"Here are newly uploaded files:\n{files_block}\n\n{enriched_message}"
+            else:
+                final_message = enriched_message
+            await handle_user_message(user_name, product_id, final_message,
                                       coder_completed_callback=coder_completed_callback,
                                       stream_to_user_callback=stream_to_user_callback)
         else:
