@@ -2,12 +2,13 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Dict, List, Tuple
 
+from breba_app.chainlit_bridge import BrebaMessage
 from breba_app.template_agent.baml_client.stream_types import LLMMessage
 
 
 @dataclass
 class TemplateAgentState:
-    messages: List[LLMMessage]
+    messages: List[BrebaMessage]
 
 
 # Keyed by (user_name, product_id)
