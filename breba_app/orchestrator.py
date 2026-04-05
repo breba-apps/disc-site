@@ -6,9 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import AsyncIterator
 
-import base64
-
-from baml_py import BamlStream, Image
+from baml_py import BamlStream
 
 from breba_app.coder_agent.agent import stream_user_response_or_coder, run_coder_agent, generate_executive_summary
 from breba_app.coder_agent.baml_client.async_client import b
@@ -101,14 +99,14 @@ async def baml_stream_and_collect_user_response(stream: BamlStream, stream_recei
 
 
 @agent_task
-async def edit_product(user_name: str, product_id: str, message: str,
+async def edit_product(user_name: str, product_id: str, llm_message: LLMMessage,
                        coder_completed_callback,
                        stream_to_user_callback):
     # TODO: This duplication can be overcome by memoization, or passing state as param
     orchestrator_state = load_state(user_name, product_id)
     file_store = orchestrator_state.filestore
     update_status("Thinking...")
-    orchestrator_state.messages.append(LLMMessage(role="user", content=message))
+    orchestrator_state.messages.append(llm_message)
     response = await stream_user_response_or_coder(messages=orchestrator_state.messages, filestore=file_store)
 
     final_response = await baml_stream_and_collect_user_response(response, stream_to_user_callback)
@@ -127,10 +125,10 @@ async def edit_product(user_name: str, product_id: str, message: str,
 
 
 @agent_task
-async def start_product(user_name: str, product_id: str, message: str,
+async def start_product(user_name: str, product_id: str, llm_message: LLMMessage,
                         coder_completed_callback, message_to_user_callback):
     t_agent = TemplateAgent(user_name, product_id)
-    response = await t_agent.build_specification(message, message_to_user_callback)
+    response = await t_agent.build_specification(llm_message.content, message_to_user_callback)
 
     # We will only proceed to next step, if we have a website specification. Otherwise, wait for additional user input
     if isinstance(response, WebsiteSpecification):
@@ -139,7 +137,7 @@ async def start_product(user_name: str, product_id: str, message: str,
         file_store = orchestrator_state.filestore
         new_spec = response.spec
 
-        orchestrator_state.messages.append(LLMMessage(role="user", content=message))
+        orchestrator_state.messages.append(LLMMessage(role="user", content=llm_message.content))
         orchestrator_state.messages.append(LLMMessage(role="assistant", content=new_spec))
         orchestrator_state.messages.append(
             LLMMessage(role="user", content="Let's use this specification to build the website"))
@@ -155,22 +153,23 @@ async def start_product(user_name: str, product_id: str, message: str,
         update_status("The website is ready to be deployed. Use the 🚀 from the sidebar to deploy your website")
 
 
-async def handle_user_message(user_name: str, product_id: str, message: str,
+async def handle_user_message(user_name: str, product_id: str, llm_message: LLMMessage,
                               coder_completed_callback, stream_to_user_callback):
     orchestrator_state = load_state(user_name, product_id)
     file_store = orchestrator_state.filestore
     if file_store.file_exists(INDEX_FILE_NAME):
-        await edit_product(user_name, product_id, message, coder_completed_callback, stream_to_user_callback)
+        await edit_product(user_name, product_id, llm_message, coder_completed_callback, stream_to_user_callback)
     else:
-        await start_product(user_name, product_id, message, coder_completed_callback, stream_to_user_callback)
+        await start_product(user_name, product_id, llm_message, coder_completed_callback, stream_to_user_callback)
 
 
 @agent_task
-async def handle_file_upload(user_name: str, product_id, files: list[tuple[str, str]], message: str,
+async def handle_file_upload(user_name: str, product_id, llm_message: LLMMessage,
+                             file_tuples: list[tuple[str, str]],
                              coder_completed_callback, stream_to_user_callback):
     image_files = []
     non_image_files = []
-    for file_tuple in files:
+    for file_tuple in file_tuples:
         content_type, _ = mimetypes.guess_type(file_tuple[1])
         if content_type and content_type.startswith("image/"):
             image_files.append(file_tuple)
@@ -183,21 +182,12 @@ async def handle_file_upload(user_name: str, product_id, files: list[tuple[str, 
         if non_image_files:
             non_image_paths = await asyncio.gather(*(
                 upload_file(user_name=user_name, product_id=product_id, file_path=Path(file_tuple[0]),
-                            file_name=file_tuple[1], description=message) for file_tuple in non_image_files))
+                            file_name=file_tuple[1], description=llm_message.content) for file_tuple in non_image_files))
             uploaded_paths.extend(non_image_paths)
 
         if image_files:
-            def _to_baml_image(file_tuple) -> Image:
-                path, name = file_tuple
-                content_type, _ = mimetypes.guess_type(name)
-                media_type = content_type or "image/jpeg"
-                return Image.from_base64(media_type, base64.b64encode(Path(path).read_bytes()).decode())
-
             orchestrator_state = load_state(user_name, product_id)
-            messages_for_intent = orchestrator_state.messages + [
-                LLMMessage(role="user", content=message,
-                           images=[_to_baml_image(ft) for ft in image_files])
-            ]
+            messages_for_intent = orchestrator_state.messages + [llm_message]
             upload_intent = await b.ShouldUploadToAssets(messages_for_intent)
 
             if upload_intent.problem:
@@ -207,15 +197,16 @@ async def handle_file_upload(user_name: str, product_id, files: list[tuple[str, 
             if upload_intent.upload:
                 image_paths = await asyncio.gather(*(
                     upload_file(user_name=user_name, product_id=product_id, file_path=Path(file_tuple[0]),
-                                file_name=file_tuple[1], description=message) for file_tuple in image_files))
+                                file_name=file_tuple[1], description=llm_message.content) for file_tuple in image_files))
                 uploaded_paths.extend(image_paths)
 
         if uploaded_paths or image_files:
             if uploaded_paths:
                 files_block = "\n".join(f"- {p}" for p in uploaded_paths)
-                message = f"Here are newly uploaded files:\n{files_block}\n\n{message}"
+                updated_content = f"Here are newly uploaded files:\n{files_block}\n\n{llm_message.content}"
+                llm_message = LLMMessage(role="user", content=updated_content, images=llm_message.images)
 
-            await handle_user_message(user_name, product_id, message,
+            await handle_user_message(user_name, product_id, llm_message,
                                       coder_completed_callback=coder_completed_callback,
                                       stream_to_user_callback=stream_to_user_callback)
         else:
