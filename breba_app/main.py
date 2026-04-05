@@ -16,11 +16,13 @@ from fastapi.responses import RedirectResponse
 from starlette.staticfiles import StaticFiles
 
 from breba_app.auth import change_password
-from breba_app.config import init_db
+from breba_app.config import init_db, load_env
 from breba_app.paths import app_path, templates
 
 logging.basicConfig(level=logging.INFO, )
 logger = logging.getLogger(__name__)
+
+load_env()
 
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8080"))
@@ -103,6 +105,7 @@ async def chainlit_login_callback_passthrough(request: Request):
     clear_auth_cookie(request, response)
     clear_oauth_state_cookie(response)
     return response
+
 
 @app.get("/login", response_class=HTMLResponse)
 async def login(request: Request):

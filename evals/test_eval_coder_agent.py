@@ -3,15 +3,15 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from dotenv import load_dotenv
 from openai import Client
 
 from breba_app.coder_agent.agent import run_coder_agent, FileStore
 from breba_app.coder_agent.baml_client.types import LLMMessage
+from breba_app.config import load_env
 from breba_app.filesystem import in_memory_store
 from evals.loader import load_messages, load_initial_files, load_evals
 
-load_dotenv()
+load_env(".env.integration_tests")
 
 client = Client()
 

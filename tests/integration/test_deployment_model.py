@@ -5,9 +5,9 @@ import uuid
 import pytest
 import pytest_asyncio
 from beanie import init_beanie
-from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
 
+from breba_app.config import load_env
 from breba_app.models.deployment import Deployment
 from breba_app.models.product import Product
 from breba_app.models.user import User
@@ -22,9 +22,9 @@ def event_loop():
 
 @pytest_asyncio.fixture
 async def init_test_db():
-    load_dotenv()
-    MONGO_URI = os.getenv("MONGO_URI")
-    client = AsyncIOMotorClient(MONGO_URI)
+    load_env(".env.integration_tests")
+    mongo_uri = os.getenv("MONGO_URI")
+    client = AsyncIOMotorClient(mongo_uri)
     db = client.get_database('breba-test')
 
     User.model_rebuild(_types_namespace={"Product": Product})
@@ -50,7 +50,7 @@ async def mock_user(init_test_db):
 
 
 @pytest_asyncio.fixture
-async def test_product(init_test_db, mock_user):
+async def mock_product(init_test_db, mock_user):
     product = Product(
         product_id=str(uuid.uuid4()),
         name=f"Test Product {uuid.uuid4().hex[:8]}",
@@ -62,18 +62,18 @@ async def test_product(init_test_db, mock_user):
 
 
 @pytest.mark.asyncio
-async def test_concurrent_get_or_create_same_deployment(mock_user, test_product):
+async def test_concurrent_get_or_create_same_deployment(mock_user, mock_product):
     deployment_id = f"test-deployment-{uuid.uuid4().hex[:8]}"
 
     async def create_deployment():
-        return await Deployment.get_or_create(deployment_id, test_product.id, mock_user.id)
+        return await Deployment.get_or_create(deployment_id, mock_product.id, mock_user.id)
 
     tasks = [create_deployment() for _ in range(10)]
     deployments = await asyncio.gather(*tasks)
 
     assert all(d.deployment_id == deployment_id for d in deployments)
     assert all(d.user.ref.id == mock_user.id for d in deployments)
-    assert all(d.product.ref.id == test_product.id for d in deployments)
+    assert all(d.product.ref.id == mock_product.id for d in deployments)
 
     db_deployments = await Deployment.find(Deployment.deployment_id == deployment_id).to_list()
     assert len(db_deployments) == 1
@@ -81,7 +81,7 @@ async def test_concurrent_get_or_create_same_deployment(mock_user, test_product)
 
 
 @pytest.mark.asyncio
-async def test_concurrent_get_or_create_different_users(test_product):
+async def test_concurrent_get_or_create_different_users(mock_product):
     users = []
     for i in range(3):
         user_id = str(uuid.uuid4())
@@ -96,7 +96,7 @@ async def test_concurrent_get_or_create_different_users(test_product):
 
     async def create_deployment_for_user(user):
         try:
-            return await Deployment.get_or_create(deployment_id, test_product.id, user.id)
+            return await Deployment.get_or_create(deployment_id, mock_product.id, user.id)
         except ValueError as e:
             return e
 
