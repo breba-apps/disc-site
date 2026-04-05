@@ -8,6 +8,7 @@ from typing import AsyncIterator
 
 from baml_py import BamlStream
 
+from breba_app.chainlit_bridge import BrebaMessage
 from breba_app.coder_agent.agent import stream_user_response_or_coder, run_coder_agent, generate_executive_summary
 from breba_app.coder_agent.baml_client.async_client import b
 from breba_app.coder_agent.baml_client.stream_types import Coder as CoderStream, ResponseToUser as ResponseToUserStream
@@ -30,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class OrchestratorState:
-    messages: list[LLMMessage]
+    messages: list[BrebaMessage]
     executive_summary: str
     filestore: InMemoryFileStore
 
@@ -80,6 +81,10 @@ def save_state(user_name: str, product_id: str, state: OrchestratorState) -> Non
     _state_store[(user_name, product_id)] = state
 
 
+def _to_baml_messages(messages: list[BrebaMessage]) -> list[LLMMessage]:
+    return [m.to_baml_message() for m in messages]
+
+
 async def baml_stream_and_collect_user_response(stream: BamlStream, stream_receiver) -> str:
     async def gen() -> AsyncIterator[str]:
         async for msg in stream:
@@ -99,36 +104,39 @@ async def baml_stream_and_collect_user_response(stream: BamlStream, stream_recei
 
 
 @agent_task
-async def edit_product(user_name: str, product_id: str, llm_message: LLMMessage,
+async def edit_product(user_name: str, product_id: str, message: BrebaMessage,
                        coder_completed_callback,
                        stream_to_user_callback):
     # TODO: This duplication can be overcome by memoization, or passing state as param
     orchestrator_state = load_state(user_name, product_id)
     file_store = orchestrator_state.filestore
     update_status("Thinking...")
-    orchestrator_state.messages.append(llm_message)
-    response = await stream_user_response_or_coder(messages=orchestrator_state.messages, filestore=file_store)
+    orchestrator_state.messages.append(message)
+    response = await stream_user_response_or_coder(messages=_to_baml_messages(orchestrator_state.messages),
+                                                   filestore=file_store)
 
     final_response = await baml_stream_and_collect_user_response(response, stream_to_user_callback)
     if isinstance(final_response, Coder):
         await event_bus.emit(
-            BeforeHandoffToCoder(user_name=user_name, product_id=product_id, messages=orchestrator_state.messages,
+            BeforeHandoffToCoder(user_name=user_name, product_id=product_id,
+                                 messages=_to_baml_messages(orchestrator_state.messages),
                                  executive_summary=orchestrator_state.executive_summary))
-        coder_response = await run_coder_agent(messages=orchestrator_state.messages, filestore=file_store)
-        orchestrator_state.messages.append(LLMMessage(role="assistant", content=coder_response.content))
+        coder_response = await run_coder_agent(messages=_to_baml_messages(orchestrator_state.messages),
+                                               filestore=file_store)
+        orchestrator_state.messages.append(BrebaMessage(role="assistant", content=coder_response.content))
         await coder_completed_callback(user_name, product_id, file_store)
         update_status("The website is ready to be deployed. Use the 🚀 from the sidebar to deploy your website")
     elif isinstance(final_response, ResponseToUser):
-        orchestrator_state.messages.append(LLMMessage(role="assistant", content=final_response.response_to_user))
+        orchestrator_state.messages.append(BrebaMessage(role="assistant", content=final_response.response_to_user))
     else:
         raise ValueError("Unexpected response type")
 
 
 @agent_task
-async def start_product(user_name: str, product_id: str, llm_message: LLMMessage,
+async def start_product(user_name: str, product_id: str, message: BrebaMessage,
                         coder_completed_callback, message_to_user_callback):
     t_agent = TemplateAgent(user_name, product_id)
-    response = await t_agent.build_specification(llm_message.content, message_to_user_callback)
+    response = await t_agent.build_specification(message.content, message_to_user_callback)
 
     # We will only proceed to next step, if we have a website specification. Otherwise, wait for additional user input
     if isinstance(response, WebsiteSpecification):
@@ -137,57 +145,58 @@ async def start_product(user_name: str, product_id: str, llm_message: LLMMessage
         file_store = orchestrator_state.filestore
         new_spec = response.spec
 
-        orchestrator_state.messages.append(LLMMessage(role="user", content=llm_message.content))
-        orchestrator_state.messages.append(LLMMessage(role="assistant", content=new_spec))
+        orchestrator_state.messages.append(message)
+        orchestrator_state.messages.append(BrebaMessage(role="assistant", content=new_spec))
         orchestrator_state.messages.append(
-            LLMMessage(role="user", content="Let's use this specification to build the website"))
+            BrebaMessage(role="user", content="Let's use this specification to build the website"))
         update_status("Coder is writing the code...")
         await event_bus.emit(
-            BeforeHandoffToCoder(user_name=user_name, product_id=product_id, messages=orchestrator_state.messages,
+            BeforeHandoffToCoder(user_name=user_name, product_id=product_id,
+                                 messages=_to_baml_messages(orchestrator_state.messages),
                                  executive_summary=orchestrator_state.executive_summary)
         )
-        coder_response = await run_coder_agent(messages=orchestrator_state.messages, filestore=file_store)
-        orchestrator_state.messages.append(LLMMessage(role="assistant", content=coder_response.content))
+        coder_response = await run_coder_agent(messages=_to_baml_messages(orchestrator_state.messages),
+                                               filestore=file_store)
+        orchestrator_state.messages.append(BrebaMessage(role="assistant", content=coder_response.content))
         await coder_completed_callback(user_name, product_id, file_store)
 
         update_status("The website is ready to be deployed. Use the 🚀 from the sidebar to deploy your website")
 
 
-async def handle_user_message(user_name: str, product_id: str, llm_message: LLMMessage,
+async def handle_user_message(user_name: str, product_id: str, message: BrebaMessage,
                               coder_completed_callback, stream_to_user_callback):
     orchestrator_state = load_state(user_name, product_id)
     file_store = orchestrator_state.filestore
     if file_store.file_exists(INDEX_FILE_NAME):
-        await edit_product(user_name, product_id, llm_message, coder_completed_callback, stream_to_user_callback)
+        await edit_product(user_name, product_id, message, coder_completed_callback, stream_to_user_callback)
     else:
-        await start_product(user_name, product_id, llm_message, coder_completed_callback, stream_to_user_callback)
+        await start_product(user_name, product_id, message, coder_completed_callback, stream_to_user_callback)
 
 
 @agent_task
-async def handle_file_upload(user_name: str, product_id, llm_message: LLMMessage,
-                             file_tuples: list[tuple[str, str]],
+async def handle_file_upload(user_name: str, product_id: str, message: BrebaMessage,
                              coder_completed_callback, stream_to_user_callback):
-    image_files = []
-    non_image_files = []
-    for file_tuple in file_tuples:
-        content_type, _ = mimetypes.guess_type(file_tuple[1])
+    image_elements = []
+    non_image_elements = []
+    for el in message.elements:
+        content_type, _ = mimetypes.guess_type(el.name)
         if content_type and content_type.startswith("image/"):
-            image_files.append(file_tuple)
+            image_elements.append(el)
         else:
-            non_image_files.append(file_tuple)
+            non_image_elements.append(el)
 
     try:
         uploaded_paths = []
 
-        if non_image_files:
+        if non_image_elements:
             non_image_paths = await asyncio.gather(*(
-                upload_file(user_name=user_name, product_id=product_id, file_path=Path(file_tuple[0]),
-                            file_name=file_tuple[1], description=llm_message.content) for file_tuple in non_image_files))
+                upload_file(user_name=user_name, product_id=product_id, file_path=Path(el.path),
+                            file_name=el.name, description=message.content) for el in non_image_elements))
             uploaded_paths.extend(non_image_paths)
 
-        if image_files:
+        if image_elements:
             orchestrator_state = load_state(user_name, product_id)
-            messages_for_intent = orchestrator_state.messages + [llm_message]
+            messages_for_intent = _to_baml_messages(orchestrator_state.messages) + [message.to_baml_message()]
             upload_intent = await b.ShouldUploadToAssets(messages_for_intent)
 
             if upload_intent.problem:
@@ -196,17 +205,17 @@ async def handle_file_upload(user_name: str, product_id, llm_message: LLMMessage
 
             if upload_intent.upload:
                 image_paths = await asyncio.gather(*(
-                    upload_file(user_name=user_name, product_id=product_id, file_path=Path(file_tuple[0]),
-                                file_name=file_tuple[1], description=llm_message.content) for file_tuple in image_files))
+                    upload_file(user_name=user_name, product_id=product_id, file_path=Path(el.path),
+                                file_name=el.name, description=message.content) for el in image_elements))
                 uploaded_paths.extend(image_paths)
 
-        if uploaded_paths or image_files:
+        if uploaded_paths or image_elements:
             if uploaded_paths:
                 files_block = "\n".join(f"- {p}" for p in uploaded_paths)
-                updated_content = f"Here are newly uploaded files:\n{files_block}\n\n{llm_message.content}"
-                llm_message = LLMMessage(role="user", content=updated_content, images=llm_message.images)
+                updated_content = f"Here are newly uploaded files:\n{files_block}\n\n{message.content}"
+                message = BrebaMessage(role="user", content=updated_content, elements=message.elements)
 
-            await handle_user_message(user_name, product_id, llm_message,
+            await handle_user_message(user_name, product_id, message,
                                       coder_completed_callback=coder_completed_callback,
                                       stream_to_user_callback=stream_to_user_callback)
         else:

@@ -10,18 +10,17 @@ from bson import DBRef
 from chainlit import Message
 
 import breba_app.ui_bus as ui_bus
-from breba_app.chainlit_bridge import to_llm_message
 from auth import verify_password
-from breba_app.controllers.product_controller import delete_product, rename_product
+from breba_app.chainlit_bridge import BrebaMessage, from_cl_message
 from breba_app.config import SPEC_FILE_NAME, INDEX_FILE_NAME
+from breba_app.controllers.product_controller import delete_product, rename_product
 from breba_app.events.bus import HandleContext, Consumer, event_bus
 from breba_app.events.coder_completed import CoderCompleted
 from breba_app.filesystem import InMemoryFileStore, FileWrite
 from breba_app.models.deployment import Deployment
 from breba_app.models.product import Product, create_or_update_product_for, create_blank_product_for, set_product_active
 from breba_app.models.user import User
-from breba_app.coder_agent.baml_client.types import LLMMessage
-from breba_app.orchestrator import handle_user_message, save_state, OrchestratorState, start_product, \
+from breba_app.orchestrator import handle_user_message, start_product, \
     handle_file_upload, init_orchestrator
 from breba_app.storage import has_cloud_storage, list_versions, get_active_version, set_version_active, \
     read_all_files_in_memory, save_files, get_index_html_path
@@ -202,18 +201,20 @@ async def window_message(message: str | dict):
 
     if method == "to_builder":
         await handle_user_message(user_name, product_id,
-                                  LLMMessage(role="user", content=message.get("body", "INVALID REQEUST, something went wrong")),
+                                  BrebaMessage(role="user",
+                                               content=message.get("body", "INVALID REQEUST, something went wrong")),
                                   coder_completed_callback=coder_completed,
                                   stream_to_user_callback=ask_user_streaming)
     elif method == "to_generator":
         await handle_user_message(user_name, product_id,
-                                  LLMMessage(role="user", content=message.get("body", "INVALID REQEUST, something went wrong")),
+                                  BrebaMessage(role="user",
+                                               content=message.get("body", "INVALID REQEUST, something went wrong")),
                                   coder_completed_callback=coder_completed,
                                   stream_to_user_callback=ask_user_streaming)
     elif method == "load_template":
         await start_product(
             user_name, product_id,
-            LLMMessage(role="user", content=landing_page_instructions),
+            BrebaMessage(role="user", content=landing_page_instructions),
             coder_completed,
             ask_user_streaming
         )
@@ -262,14 +263,13 @@ async def window_message(message: str | dict):
 async def respond(message: Message):
     product_id = cl.user_session.get("product_id")
     user_name = cl.user_session.get("user").identifier
-    llm_message = to_llm_message(message)
+    breba_message = from_cl_message(message)
 
     if len(message.elements) > 0:
-        file_tuples = [(el.path, el.name) for el in message.elements]
-        await handle_file_upload(user_name, product_id, llm_message, file_tuples, coder_completed, ask_user_streaming)
+        await handle_file_upload(user_name, product_id, breba_message, coder_completed, ask_user_streaming)
     else:
         # TODO: need some error handling here similar to the above or better
-        await handle_user_message(user_name, product_id, llm_message, coder_completed_callback=coder_completed,
+        await handle_user_message(user_name, product_id, breba_message, coder_completed_callback=coder_completed,
                                   stream_to_user_callback=ask_user_streaming)
 
 
