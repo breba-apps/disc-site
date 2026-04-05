@@ -3,6 +3,7 @@ from typing import AsyncIterable
 from langchain_core.messages import trim_messages
 from langchain_core.messages.utils import count_tokens_approximately, convert_to_openai_messages
 
+from breba_app.chainlit_bridge import BrebaMessage
 from breba_app.status_service import update_status
 from breba_app.template_agent.baml_client.async_client import b
 from breba_app.template_agent.baml_client.stream_types import Question as StreamQuestion, LLMMessage, \
@@ -33,8 +34,9 @@ class TemplateAgent:
         if messages:
             self.state.messages = messages
 
-    async def build_specification(self, message: str, ask_user_streaming_callback) -> WebsiteSpecification | Question:
-        self.state.messages.append(LLMMessage(role="user", content=message))
+    async def build_specification(self, message: BrebaMessage, ask_user_streaming_callback) -> WebsiteSpecification | Question:
+        baml_msg = message.to_baml_message()
+        self.state.messages.append(LLMMessage(role="user", content=baml_msg.content, images=baml_msg.images))
         dict_messages = [message.model_dump() for message in self.state.messages]
         # "human" is the langchain type for "user" role messages
         trimmed_messages_lc = trim_messages(dict_messages, strategy="last",
@@ -57,8 +59,8 @@ class TemplateAgent:
             # This will only happen when the last user message is very long.
             # We do not want to add it to the state because it will hide all older messages. So we will not save state
             self.state.messages.pop()
-            message = f"You have exceeded the token limit({TOKEN_LIMIT} tokens). Please provide a shorter description."
-            update_status(message)
-            agent_response = Question(question=message)
+            error_message = f"You have exceeded the token limit({TOKEN_LIMIT} tokens). Please provide a shorter description."
+            update_status(error_message)
+            agent_response = Question(question=error_message)
 
         return agent_response

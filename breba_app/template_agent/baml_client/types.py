@@ -47,6 +47,7 @@ def all_succeeded(checks: typing.Dict[CheckName, Check]) -> bool:
 class LLMMessage(BaseModel):
     role: typing.Union[typing_extensions.Literal['user'], typing_extensions.Literal['assistant']]
     content: str
+    images: typing.Optional[typing.List[baml_py.Image]] = None
 
 class Question(BaseModel):
     question: str = Field(description='Question that requires the user to answer')

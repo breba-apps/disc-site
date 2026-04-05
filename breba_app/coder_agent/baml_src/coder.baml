@@ -152,8 +152,9 @@ ONLY EVER RETURN CODE IN A *SEARCH/REPLACE BLOCK*!
 {{ SystemReminder() }}
 
     {% for message in messages %}
-      {{ _.role(message.role) }} 
+      {{ _.role(message.role) }}
       {{ message.content }}
+      {{ message.images }}
     {% endfor %}
 
     {{ _.role("system") }}

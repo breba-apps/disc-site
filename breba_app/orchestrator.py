@@ -136,7 +136,7 @@ async def edit_product(user_name: str, product_id: str, message: BrebaMessage,
 async def start_product(user_name: str, product_id: str, message: BrebaMessage,
                         coder_completed_callback, message_to_user_callback):
     t_agent = TemplateAgent(user_name, product_id)
-    response = await t_agent.build_specification(message.content, message_to_user_callback)
+    response = await t_agent.build_specification(message, message_to_user_callback)
 
     # We will only proceed to next step, if we have a website specification. Otherwise, wait for additional user input
     if isinstance(response, WebsiteSpecification):
