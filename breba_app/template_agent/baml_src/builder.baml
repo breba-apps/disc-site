@@ -122,7 +122,11 @@ function GenerateSpecificationFromTemplate(messages: LLMMessage[]) -> Question |
     {% for message in messages %}
       {{ _.role(message.role) }}
       {{ message.content }}
-      {{ message.images }}
+      {% if message.images %}
+        {% for image in message.images %}
+          {{ image }}
+        {% endfor %}
+      {% endif %}
     {% endfor %}
 
     {{ _.role("system") }}

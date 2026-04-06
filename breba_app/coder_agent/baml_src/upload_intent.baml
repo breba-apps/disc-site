@@ -64,7 +64,11 @@ IMPORTANT: If the number of images doesn't match what the user described (e.g. "
 
 {% for message in messages %}
   {{ _.role(message.role) }}
-  {{ message.images }}
+  {% if message.images %}
+        {% for image in message.images %}
+          {{ image }}
+        {% endfor %}
+      {% endif %}
   {{ message.content }}
 {% endfor %}
 

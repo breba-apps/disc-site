@@ -65,8 +65,12 @@ IMPORTANT: User doesn't know anything about code. For implementation details, de
 
 
     {% for message in messages %}
-      {{ _.role(message.role) }} 
-      {{ message.images }}
+      {{ _.role(message.role) }}
+      {% if message.images %}
+        {% for image in message.images %}
+          {{ image }}
+        {% endfor %}
+      {% endif %}
       {{ message.content }}
     {% endfor %}
 

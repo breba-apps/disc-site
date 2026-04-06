@@ -154,7 +154,11 @@ ONLY EVER RETURN CODE IN A *SEARCH/REPLACE BLOCK*!
     {% for message in messages %}
       {{ _.role(message.role) }}
       {{ message.content }}
-      {{ message.images }}
+      {% if message.images %}
+        {% for image in message.images %}
+          {{ image }}
+        {% endfor %}
+      {% endif %}
     {% endfor %}
 
     {{ _.role("system") }}
