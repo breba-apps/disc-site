@@ -1,5 +1,5 @@
 landing_page_instructions = f"""
-# Instructions for building a Crafts Landing Page
+# Instructions for building an Artist Landing Page
 
 ## Questions to ask
 - **You will only ask these exact questions, and no other questions**
@@ -25,8 +25,7 @@ Notes to developer:
   - Navbar background shows up only after visitor starts scrolling
   - For mobile, make sure that when the sandwich button is clicked, the rolled out items have a contrasting background color
   - For mobile, make sure that the sandwich button color contrasts the background (whatever it is)
-- Testimonials section with 6 testimonials
-- FAQs section with 5 questions based on the business plan
+- About the Artist section
 - Footer with social media icons
 - Modal form with fields: Name, Email, Message
   - the form will use staticforms.xyz with ajax for submission.
