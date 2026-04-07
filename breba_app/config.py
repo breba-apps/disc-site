@@ -1,3 +1,4 @@
+import logging
 import os
 from pathlib import Path
 
@@ -9,12 +10,31 @@ from breba_app.models.deployment import Deployment
 from breba_app.models.product import Product
 from breba_app.models.user import User
 
+logger = logging.getLogger(__name__)
+
 DOT_ENV_PATH = Path(".secrets/breba/")
 SPEC_FILE_NAME = "spec.txt"
 INDEX_FILE_NAME = "index.html"
 
+def _read_required_env_keys() -> list[str]:
+    env_example = Path(__file__).parent / "env.example"
+    keys = []
+    for line in env_example.read_text().splitlines():
+        line = line.strip()
+        if line and not line.startswith("#") and "=" in line:
+            keys.append(line.split("=", 1)[0].strip())
+    logger.debug("load_env: required keys read from env.example: %s", keys)
+    return keys
+
+
+_REQUIRED_ENV_KEYS = _read_required_env_keys()
+
 
 def load_env(file: str | None = None):
+    if all(os.getenv(key) for key in _REQUIRED_ENV_KEYS):
+        logger.info("load_env: all required env vars already set in environment, skipping .env lookup")
+        return
+
     file = file or ".env"
     working_dir = Path(".").resolve()
 
@@ -24,7 +44,9 @@ def load_env(file: str | None = None):
         if working_dir == Path("/"):
             raise FileNotFoundError(".secrets directory not found")
 
-    load_dotenv(working_dir / DOT_ENV_PATH / file)
+    env_path = working_dir / DOT_ENV_PATH / file
+    logger.info("load_env: loading env vars from %s", env_path)
+    load_dotenv(env_path)
 
 
 async def init_db():

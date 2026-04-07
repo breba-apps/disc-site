@@ -23,6 +23,7 @@ RUN uv sync --frozen --no-dev
 
 # Copy the entire app into the image
 COPY breba_app ./breba_app
+
 # Public direcotry is used by chainlit to get files. Needs to be on the level of working directory
 COPY breba_app/public ./public
 COPY breba_app/.chainlit ./.chainlit
