@@ -69,6 +69,16 @@ async def favicon():
     return RedirectResponse(url="/public/favicon.ico")
 
 
+@app.get("/robots.txt")
+async def robots():
+    return RedirectResponse(url="/public/robots.txt")
+
+
+@app.get("/sitemap.xml")
+async def sitemap():
+    return RedirectResponse(url="/public/sitemap.xml")
+
+
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     """
