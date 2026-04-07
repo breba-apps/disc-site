@@ -29,6 +29,7 @@ class StreamState(BaseModel, typing.Generic[StreamStateValueT]):
 class LLMMessage(BaseModel):
     role: typing.Optional[typing.Union[typing_extensions.Literal['user'], typing_extensions.Literal['assistant']]] = None
     content: typing.Optional[str] = None
+    images: typing.Optional[typing.List[baml_py.Image]] = None
 
 class Question(BaseModel):
     question: typing.Optional[str] = Field(default=None, description='Question that requires the user to answer')

@@ -9,6 +9,7 @@ class WebsiteSpecification {
 class LLMMessage {
   role "user" | "assistant"
   content string
+  images image[]?
 }
 
 template_string  SystemInfo() #"
@@ -119,8 +120,13 @@ function GenerateSpecificationFromTemplate(messages: LLMMessage[]) -> Question |
     {{ GoodWebsiteSpecification() }}    
 
     {% for message in messages %}
-      {{ _.role(message.role) }} 
+      {{ _.role(message.role) }}
       {{ message.content }}
+      {% if message.images %}
+        {% for image in message.images %}
+          {{ image }}
+        {% endfor %}
+      {% endif %}
     {% endfor %}
 
     {{ _.role("system") }}

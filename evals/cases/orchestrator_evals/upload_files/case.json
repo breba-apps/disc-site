@@ -2,12 +2,12 @@
   "messages": [
     {
       "role": "user",
-      "content": "List full path of files that were uploaded."
+      "content": "Create a gallery with these files."
     }
   ],
   "evals": [
     {
-      "question": "Were https://example.com/file2.jpeg and https://example.com/file1.jpeg uploaded?",
+      "question": "Were https://example.com/file1.jpeg and https://example.com/file2.jpeg mentioned?",
       "answer_options": "true, false",
       "expected_answer": "true"
     }

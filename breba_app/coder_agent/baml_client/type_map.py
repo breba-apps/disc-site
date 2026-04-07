@@ -22,11 +22,26 @@ type_map = {
     "types.FileList": types.FileList,
     "stream_types.FileList": stream_types.FileList,
 
+    "types.ImageClassification": types.ImageClassification,
+    "stream_types.ImageClassification": stream_types.ImageClassification,
+
+    "types.Inference": types.Inference,
+    "stream_types.Inference": stream_types.Inference,
+
     "types.LLMMessage": types.LLMMessage,
     "stream_types.LLMMessage": stream_types.LLMMessage,
 
+    "types.QuestionToUser": types.QuestionToUser,
+    "stream_types.QuestionToUser": stream_types.QuestionToUser,
+
     "types.ResponseToUser": types.ResponseToUser,
     "stream_types.ResponseToUser": stream_types.ResponseToUser,
+
+    "types.UplaodAsset": types.UplaodAsset,
+    "stream_types.UplaodAsset": stream_types.UplaodAsset,
+
+    "types.UploadToAssets": types.UploadToAssets,
+    "stream_types.UploadToAssets": stream_types.UploadToAssets,
 
 
 }

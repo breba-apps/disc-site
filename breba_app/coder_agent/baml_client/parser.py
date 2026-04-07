@@ -30,6 +30,12 @@ class LlmResponseParser:
         __result__ = self.__options.merge_options(baml_options).parse_response(function_name="CoderNotes", llm_response=llm_response, mode="request")
         return typing.cast(str, __result__)
 
+    def DescribeMedia(
+        self, llm_response: str, baml_options: BamlCallOptions = {},
+    ) -> typing.Union["types.ImageClassification", "types.QuestionToUser"]:
+        __result__ = self.__options.merge_options(baml_options).parse_response(function_name="DescribeMedia", llm_response=llm_response, mode="request")
+        return typing.cast(typing.Union["types.ImageClassification", "types.QuestionToUser"], __result__)
+
     def DetermineFilesToEdit(
         self, llm_response: str, baml_options: BamlCallOptions = {},
     ) -> types.FileList:
@@ -41,6 +47,18 @@ class LlmResponseParser:
     ) -> str:
         __result__ = self.__options.merge_options(baml_options).parse_response(function_name="GenerateSearchReplaceBlocks", llm_response=llm_response, mode="request")
         return typing.cast(str, __result__)
+
+    def PickActionForUpload(
+        self, llm_response: str, baml_options: BamlCallOptions = {},
+    ) -> typing.Union["types.UplaodAsset", "types.Inference", "types.QuestionToUser"]:
+        __result__ = self.__options.merge_options(baml_options).parse_response(function_name="PickActionForUpload", llm_response=llm_response, mode="request")
+        return typing.cast(typing.Union["types.UplaodAsset", "types.Inference", "types.QuestionToUser"], __result__)
+
+    def ShouldUploadToAssets(
+        self, llm_response: str, baml_options: BamlCallOptions = {},
+    ) -> types.UploadToAssets:
+        __result__ = self.__options.merge_options(baml_options).parse_response(function_name="ShouldUploadToAssets", llm_response=llm_response, mode="request")
+        return typing.cast(types.UploadToAssets, __result__)
 
     def UserResponseOrCoder(
         self, llm_response: str, baml_options: BamlCallOptions = {},
@@ -68,6 +86,12 @@ class LlmStreamParser:
         __result__ = self.__options.merge_options(baml_options).parse_response(function_name="CoderNotes", llm_response=llm_response, mode="stream")
         return typing.cast(str, __result__)
 
+    def DescribeMedia(
+        self, llm_response: str, baml_options: BamlCallOptions = {},
+    ) -> typing.Union["stream_types.ImageClassification", "stream_types.QuestionToUser"]:
+        __result__ = self.__options.merge_options(baml_options).parse_response(function_name="DescribeMedia", llm_response=llm_response, mode="stream")
+        return typing.cast(typing.Union["stream_types.ImageClassification", "stream_types.QuestionToUser"], __result__)
+
     def DetermineFilesToEdit(
         self, llm_response: str, baml_options: BamlCallOptions = {},
     ) -> stream_types.FileList:
@@ -79,6 +103,18 @@ class LlmStreamParser:
     ) -> str:
         __result__ = self.__options.merge_options(baml_options).parse_response(function_name="GenerateSearchReplaceBlocks", llm_response=llm_response, mode="stream")
         return typing.cast(str, __result__)
+
+    def PickActionForUpload(
+        self, llm_response: str, baml_options: BamlCallOptions = {},
+    ) -> typing.Union["stream_types.UplaodAsset", "stream_types.Inference", "stream_types.QuestionToUser"]:
+        __result__ = self.__options.merge_options(baml_options).parse_response(function_name="PickActionForUpload", llm_response=llm_response, mode="stream")
+        return typing.cast(typing.Union["stream_types.UplaodAsset", "stream_types.Inference", "stream_types.QuestionToUser"], __result__)
+
+    def ShouldUploadToAssets(
+        self, llm_response: str, baml_options: BamlCallOptions = {},
+    ) -> stream_types.UploadToAssets:
+        __result__ = self.__options.merge_options(baml_options).parse_response(function_name="ShouldUploadToAssets", llm_response=llm_response, mode="stream")
+        return typing.cast(stream_types.UploadToAssets, __result__)
 
     def UserResponseOrCoder(
         self, llm_response: str, baml_options: BamlCallOptions = {},

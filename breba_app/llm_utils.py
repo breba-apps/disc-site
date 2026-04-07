@@ -4,10 +4,46 @@ from pathlib import Path
 from jinja2 import Environment, FileSystemLoader
 from openai import AsyncOpenAI
 
-client = AsyncOpenAI()
+from breba_app.chainlit_bridge import BrebaMessage
+
+_client: AsyncOpenAI | None = None
 
 logger = logging.getLogger(__name__)
 
+
+def _get_client() -> AsyncOpenAI:
+    global _client
+    if _client is None:
+        _client = AsyncOpenAI()
+    return _client
+
+USER_ROLE = "user"
+MAX_MESSAGES = 100
+MAX_WORDS = 20_000
+MAX_IMAGES = 30
+
+
+def trim(messages: list[BrebaMessage]) -> list[BrebaMessage]:
+    result = []
+    total_words = 0
+    total_images = 0
+
+    for message in reversed(messages):
+        words = len(message.content.split())
+        images = len(message.elements)
+
+        if total_words + words > MAX_WORDS or total_images + images > MAX_IMAGES or len(result) >= MAX_MESSAGES:
+            break
+
+        result.insert(0, message)
+        total_words += words
+        total_images += images
+
+    # Ensure the conversation starts with a user message
+    while result and result[0].role != USER_ROLE:
+        result.pop(0)
+
+    return result
 
 async def get_product_name(description: str) -> str:
     if not description:
@@ -19,7 +55,7 @@ async def get_product_name(description: str) -> str:
         f"**Your response must be a one to three words long description of the product above.**")
 
     try:
-        response = await client.responses.create(model="gpt-5-nano", input=prompt,
+        response = await _get_client().responses.create(model="gpt-5-nano", input=prompt,
                                                  reasoning={"effort": "minimal"},
                                                  text={"verbosity": "low"})
         return response.output_text

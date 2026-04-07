@@ -2,6 +2,7 @@
 class LLMMessage {
   role "user" | "assistant"
   content string
+  images image[]?
 }
 
 class FileList {
@@ -151,8 +152,13 @@ ONLY EVER RETURN CODE IN A *SEARCH/REPLACE BLOCK*!
 {{ SystemReminder() }}
 
     {% for message in messages %}
-      {{ _.role(message.role) }} 
+      {{ _.role(message.role) }}
       {{ message.content }}
+      {% if message.images %}
+        {% for image in message.images %}
+          {{ image }}
+        {% endfor %}
+      {% endif %}
     {% endfor %}
 
     {{ _.role("system") }}
