@@ -77,6 +77,12 @@ Copy `breba_app/sample.env` to `breba_app/.env`. Required variables:
 
 The env loader searches up the directory tree for a `.secrets/breba/` directory structure before falling back to `.env`.
 
+## Coding style
+
+**No inline styles:** Never use `style="..."` attributes in HTML. Always add a class and put the rule in `styles.css`.
+
 ## Working style
 
 **Fixing failing tests:** If a test is still failing after 3 attempts, stop and explain what is happening rather than continuing to try fixes. Describe what the test is doing, what the actual vs expected output is, and what the likely root cause is. Let the user decide how to proceed.
+
+**New files:** Anytime you create a new file that is part of the project (source code, tests, eval cases, config, etc.), run `git add <file>` immediately after creating it.

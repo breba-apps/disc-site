@@ -321,15 +321,16 @@ body {
     border-radius: 2rem;
     font-size: var(--font-size-sm);
     font-weight: 500;
-    margin-bottom: 2rem;
+    margin-bottom: clamp(1rem, 2vw, 2rem);
     backdrop-filter: blur(10px);
 }
 
 .hero-title {
-    font-size: var(--font-size-6xl);
+    font-size: clamp(2.2rem, 3vw + 1rem, 3.6rem);
     font-weight: 800;
     line-height: 1.1;
-    margin-bottom: 1.5rem;
+    min-height: 2.1lh;
+    margin-bottom: clamp(0.75rem, 1.5vw, 1.5rem);
     letter-spacing: -0.02em;
 }
 
@@ -342,7 +343,7 @@ body {
 
 .hero-subtitle {
     font-size: var(--font-size-xl);
-    margin-bottom: 2.5rem;
+    margin-bottom: clamp(1.25rem, 2.5vw, 2.5rem);
     opacity: 0.9;
     line-height: 1.6;
     max-width: 500px;
@@ -766,6 +767,10 @@ section {
     line-height: 1.7;
 }
 
+.text-pretty {
+    text-wrap: pretty;
+}
+
 /* Pricing Section */
 .pricing {
     background: var(--breba-dark);
@@ -786,6 +791,12 @@ section {
     box-shadow: var(--shadow-md);
     transition: all 0.3s ease;
     border: none;
+    display: flex;
+    flex-direction: column;
+}
+
+.pricing-card .d-flex.justify-content-center {
+    margin-top: auto;
 }
 
 .pricing-card:hover {
@@ -802,6 +813,29 @@ section {
     font-size: var(--font-size-2xl);
     font-weight: 600;
     margin-bottom: 1rem;
+}
+
+.pricing-price {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 0.25rem;
+    margin-bottom: 0.5rem;
+}
+
+.price-amount {
+    font-size: var(--font-size-5xl);
+    font-weight: 700;
+}
+
+.price-unit {
+    font-size: var(--font-size-lg);
+}
+
+.pricing-note {
+    font-size: var(--font-size-sm);
+    opacity: 0.7;
+    margin-bottom: 0;
 }
 
 .price {
@@ -1525,10 +1559,6 @@ section {
         gap: 2rem;
     }
 
-    .hero-title {
-        font-size: var(--font-size-4xl);
-    }
-
     .hero-actions {
         justify-content: center;
     }
@@ -1536,6 +1566,11 @@ section {
     .hero-stats {
         justify-content: center;
         gap: 2rem;
+    }
+
+    .hero-subtitle {
+        margin-left: auto;
+        margin-right: auto;
     }
 
     .hero-showcase {
@@ -1580,9 +1615,6 @@ section {
 }
 
 @media (max-width: 480px) {
-    .hero-title {
-        font-size: var(--font-size-3xl);
-    }
 
     .section-header h2 {
         font-size: var(--font-size-3xl);
