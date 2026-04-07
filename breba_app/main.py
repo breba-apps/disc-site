@@ -14,8 +14,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from starlette.staticfiles import StaticFiles
 
+import breba_app.github_oauth as github_oauth
 from breba_app.auth import change_password
 from breba_app.config import init_db, load_env
+from breba_app.github_controller import get_github_connection_status, handle_github_callback
 from breba_app.paths import app_path, templates
 
 logging.basicConfig(level=logging.INFO, )
@@ -172,6 +174,43 @@ async def change_password_route(
         )
 
     return RedirectResponse(url="/settings?success=1", status_code=303)
+
+
+@app.get("/github/connect")
+async def github_connect(
+        current_user: Annotated[cl.User, Depends(get_current_user)],
+):
+    client_id = os.environ.get("GITHUB_CLIENT_ID", "")
+    secret = os.environ.get("CHAINLIT_AUTH_SECRET", "")
+    state = github_oauth.generate_state(current_user.identifier, secret)
+    return RedirectResponse(url=github_oauth.build_github_auth_url(client_id, state))
+
+
+@app.get("/github/callback", response_class=HTMLResponse)
+async def github_callback(code: str = "", state: str = ""):
+    result = await handle_github_callback(
+        code=code,
+        state=state,
+        secret=os.environ.get("CHAINLIT_AUTH_SECRET", ""),
+        client_id=os.environ.get("GITHUB_CLIENT_ID", ""),
+        client_secret=os.environ.get("GITHUB_CLIENT_SECRET", ""),
+    )
+    if not result.success:
+        return HTMLResponse(
+            content=f"<html><body><p class='error'>{result.error}</p></body></html>",
+            status_code=400,
+        )
+    return HTMLResponse(
+        content="<html><head><script>window.close();</script></head><body><p class='success'>GitHub account connected. You may close this window.</p></body></html>",
+    )
+
+
+@app.get("/github/status")
+async def github_status(
+        current_user: Annotated[cl.User, Depends(get_current_user)],
+):
+    result = await get_github_connection_status(current_user.identifier)
+    return {"connected": result.connected, "github_username": result.github_username}
 
 
 current_file_dir = Path(__file__).parent
