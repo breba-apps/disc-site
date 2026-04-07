@@ -326,7 +326,7 @@ body {
 }
 
 .hero-title {
-    font-size: var(--font-size-6xl);
+    font-size: clamp(2rem, 3.5vw + 1rem, 3.6rem);
     font-weight: 800;
     line-height: 1.1;
     margin-bottom: 1.5rem;
@@ -1525,10 +1525,6 @@ section {
         gap: 2rem;
     }
 
-    .hero-title {
-        font-size: var(--font-size-4xl);
-    }
-
     .hero-actions {
         justify-content: center;
     }
@@ -1580,9 +1576,6 @@ section {
 }
 
 @media (max-width: 480px) {
-    .hero-title {
-        font-size: var(--font-size-3xl);
-    }
 
     .section-header h2 {
         font-size: var(--font-size-3xl);
