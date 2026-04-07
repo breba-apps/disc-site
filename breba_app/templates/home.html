@@ -414,8 +414,8 @@
 <section class="pricing" id="pricing">
     <div class="container">
         <div class="section-header">
-            <h2>Pay as you go</h2>
-            <p>Only pay for what you build — no subscriptions, no lock-in</p>
+            <h2>Pay for the outcomes</h2>
+            <p class="text-pretty">Build and refine for free. Pay $50 only when you're ready to launch.</p>
         </div>
 
         <div class="pricing-grid">
@@ -423,6 +423,11 @@
             <div class="pricing-card free">
                 <div class="pricing-header">
                     <h3>Start free</h3>
+                    <div class="pricing-price">
+                        <span class="price-amount">$0</span>
+                        <span class="price-unit">/ landing page</span>
+                    </div>
+                    <p class="pricing-note">Build and iterate until you love it</p>
                 </div>
                 <ul class="pricing-features">
                     <li><i class="fas fa-check"></i>Free to try Breba</li>
@@ -448,11 +453,15 @@
             <!-- Usage Based -->
             <div class="pricing-card paid">
                 <div class="pricing-header">
-                    <h3>Value-based pricing</h3>
+                    <h3>Launch</h3>
+                    <div class="pricing-price">
+                        <span class="price-amount">$50</span>
+                        <span class="price-unit">/ landing page</span>
+                    </div>
+                    <p class="pricing-note">One-time fee, only when you're ready to launch</p>
                 </div>
 
                 <ul class="pricing-features">
-                    <li><i class="fas fa-check"></i>Pay only when you deploy</li>
                     <li><i class="fas fa-check"></i>No monthly subscription</li>
                     <li><i class="fas fa-check"></i>No strings attached</li>
                     <li class="pricing-highlight d-flex align-items-center gap-2">
@@ -461,6 +470,20 @@
                     </li>
 
                 </ul>
+                <div class="d-flex justify-content-center">
+                    <a class="btn btn-primary d-inline-flex align-items-center gap-2"
+                       href="/chainlit/auth/oauth/google">
+                        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+                             alt=""
+                             width="18"
+                             height="18"
+                        >
+                        <span class="spinner-border spinner-border-sm d-none"
+                              role="status"
+                              aria-hidden="true"></span>
+                        <span class="oauth-label">Sign in with Google</span>
+                    </a>
+                </div>
             </div>
         </div>
     </div>
@@ -534,7 +557,7 @@
                     <div class="accordion-body px-0">
                         <p>
                             Breba uses value-based pricing. You can explore, generate, and iterate freely.
-                            You are only charged when you choose to deploy a landing page.
+                            When you’re happy with your page and ready to launch, it’s $50 per landing page — a one-time fee.
                             If you don’t deploy, you don’t pay.
                         </p>
                     </div>
