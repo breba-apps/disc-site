@@ -96,24 +96,24 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
-    // typing effect (target the overlay span, not the H1)
-    const typingEl = document.getElementById('heroTyping');
-    const ghostEl = document.getElementById('heroGhost');
+    // typing effect
+    const line1El = document.getElementById('heroLine1');
+    const line2El = document.getElementById('heroLine2');
 
-    if (typingEl && ghostEl) {
-        const text = ghostEl.textContent.trim(); // plain text for typing
-        typingEl.textContent = '';
+    if (line1El && line2El) {
+        const line1 = 'Your landing page';
+        const line2 = 'without the struggle';
 
         let i = 0;
         const step = () => {
-            if (i < text.length) {
-                typingEl.textContent += text.charAt(i++);
-                setTimeout(step, 50);
+            if (i < line1.length) {
+                line1El.textContent = line1.slice(0, ++i);
+            } else if (i - line1.length < line2.length) {
+                line2El.textContent = line2.slice(0, i++ - line1.length + 1);
             } else {
-                typingEl.style.borderRight = 'none';
-                // swap to the final HTML so your gradient span appears
-                typingEl.innerHTML = ghostEl.innerHTML;
+                return;
             }
+            setTimeout(step, 50);
         };
         setTimeout(step, 500);
     }
