@@ -11,8 +11,7 @@ from chainlit.utils import mount_chainlit
 from fastapi import FastAPI, Request, Depends
 from fastapi import Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
-from fastapi.responses import RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from starlette.staticfiles import StaticFiles
 
 from breba_app.auth import change_password
@@ -66,17 +65,17 @@ app.mount("/public",
 
 @app.get("/favicon.ico")
 async def favicon():
-    return RedirectResponse(url="/public/favicon.ico")
+    return FileResponse(app_path / "public" / "favicon.ico")
 
 
 @app.get("/robots.txt")
 async def robots():
-    return RedirectResponse(url="/public/robots.txt")
+    return FileResponse(app_path / "public" / "robots.txt")
 
 
 @app.get("/sitemap.xml")
 async def sitemap():
-    return RedirectResponse(url="/public/sitemap.xml")
+    return FileResponse(app_path / "public" / "sitemap.xml")
 
 
 @app.get("/", response_class=HTMLResponse)
