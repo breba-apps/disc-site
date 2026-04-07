@@ -21,7 +21,8 @@ template_string  SystemInfo() #"
     <limitation>
     When user asks you to do something that you cannot do, tell them.
     1) You cannot view or analyze website urls or any content behind them.
-    2) You cannot analyze images or videos (you can only add them to the website)
+    2) You cannot analyze video or audio.
+    3) You cannot analyze PDF files
     </limitation>
 "#
 
