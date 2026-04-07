@@ -1,29 +1,24 @@
 landing_page_instructions = f"""
-# Instructions for building a Crafts Landing Page
+# Instructions for building a Professional Services Landing Page
 
 ## Questions to ask
 - **You will only ask these exact questions, and no other questions**
 1. Ask to provide a business description and services provided.
 2. Ask about Design system in non-technical terms and may not be familiar website design (ask a couple questions and then come up with the design system)
 3. Upload hero image -- the big, eye-catching visual at the very top of a webpage. When uploading please specify if the colors in the image are dark, light, or bright.
-4. Upload logo (if no logo, make a pretty text logo using one or two design system colors).
-
-Notes to developer: 
-1) If no logo, make a pretty text logo using one or two design system colors.
-2) If no hero image is provided, use CSS to create a hero background. Background could have geometrical shapes, a patterns, and minor animation. IMPORTANT: animation should be subtle, short and not distracting (no continuous animation loops).
- 
+4. Ask to upload a logo. But if there is no logo, make a pretty text logo using one or two design system colors. 
 
 ## Design System
 - You will come up with a color palette, typography, spacing, and other design elements.(Do not ask direct questions about this, just make up whatever you think makes sense given answers to your questions)
 
 ## Layout
-- You will have a sticky navbar that scrolls to different section of the page.
+- You will have a sticky liquid glass navbar that scrolls to different section of the page.
   - The navbar will have a logo and a call to action button
   - Social media buttons in the corner 
 - Full page hero section with a call to action button and a catchy slogan.
   - Hero image stretches under the navbar.
   - Navbar background shows up only after visitor starts scrolling
-  - For mobile, make sure that when the sandwich button is clicked, the rolled out items have a contrasting background color
+  - For mobile, make sure that when the sandwich button is clicked, the background of the navbar has a contrasting background color
   - For mobile, make sure that the sandwich button color contrasts the background (whatever it is)
 - Testimonials section with 6 testimonials
 - FAQs section with 5 questions based on the business plan

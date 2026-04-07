@@ -1,5 +1,5 @@
 landing_page_instructions = f"""
-# Instructions for building a Crafts Landing Page
+# Instructions for building a Services Landing Page
 
 ## Questions to ask
 - **You will only ask these exact questions, and no other questions**
@@ -9,26 +9,26 @@ landing_page_instructions = f"""
 4. Upload logo (if no logo, make a pretty text logo using one or two design system colors).
 
 Notes to developer: 
-1) If no logo, make a pretty text logo using one or two design system colors.
+1) if no logo, make a pretty text logo using one or two design system colors.
 2) If no hero image is provided, use CSS to create a hero background. Background could have geometrical shapes, a patterns, and minor animation. IMPORTANT: animation should be subtle, short and not distracting (no continuous animation loops).
  
-
 ## Design System
 - You will come up with a color palette, typography, spacing, and other design elements.(Do not ask direct questions about this, just make up whatever you think makes sense given answers to your questions)
 
 ## Layout
-- You will have a sticky navbar that scrolls to different section of the page.
+- You will have a sticky navbar that stays on top as you scroll.
   - The navbar will have a logo and a call to action button
-  - Social media buttons in the corner 
+  - Social media buttons all the way in the right corner 
 - Full page hero section with a call to action button and a catchy slogan.
-  - Hero image stretches under the navbar.
-  - Navbar background shows up only after visitor starts scrolling
+  - The main heading and the subtext should centered in the hero section
+  - CTA buttons below the subtext
+  - Navbar is liquid glass
   - For mobile, make sure that when the sandwich button is clicked, the rolled out items have a contrasting background color
   - For mobile, make sure that the sandwich button color contrasts the background (whatever it is)
 - Testimonials section with 6 testimonials
 - FAQs section with 5 questions based on the business plan
 - Footer with social media icons
-- Modal form with fields: Name, Email, Message
+- Contact form to be show up in a modal with the following fields: Name, Email, Message
   - the form will use staticforms.xyz with ajax for submission.
   - The form will have hidden fields for: subject, replyTo, apiKey.
 
