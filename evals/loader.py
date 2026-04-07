@@ -3,12 +3,12 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from breba_app.coder_agent.baml_client.stream_types import LLMMessage
+from breba_app.chainlit_bridge import BrebaMessage
 
 
-def load_messages(case_dir: Path) -> list[LLMMessage]:
+def load_messages(case_dir: Path) -> list[BrebaMessage]:
     case = json.loads((case_dir / "case.json").read_text(encoding="utf-8"))
-    return [LLMMessage.model_validate(message) for message in case["messages"]]
+    return [BrebaMessage(role=m["role"], content=m["content"]) for m in case["messages"]]
 
 
 def load_dir_texts(dir_path: Path) -> dict[str, str]:
@@ -23,7 +23,6 @@ def load_dir_texts(dir_path: Path) -> dict[str, str]:
 
 
 def load_initial_files(case_dir: Path) -> dict[str, str]:
-    # Mirror integration test convention
     return load_dir_texts(case_dir / "initial")
 
 

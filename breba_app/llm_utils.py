@@ -6,9 +6,16 @@ from openai import AsyncOpenAI
 
 from breba_app.chainlit_bridge import BrebaMessage
 
-client = AsyncOpenAI()
+_client: AsyncOpenAI | None = None
 
 logger = logging.getLogger(__name__)
+
+
+def _get_client() -> AsyncOpenAI:
+    global _client
+    if _client is None:
+        _client = AsyncOpenAI()
+    return _client
 
 USER_ROLE = "user"
 MAX_MESSAGES = 100
@@ -48,7 +55,7 @@ async def get_product_name(description: str) -> str:
         f"**Your response must be a one to three words long description of the product above.**")
 
     try:
-        response = await client.responses.create(model="gpt-5-nano", input=prompt,
+        response = await _get_client().responses.create(model="gpt-5-nano", input=prompt,
                                                  reasoning={"effort": "minimal"},
                                                  text={"verbosity": "low"})
         return response.output_text
