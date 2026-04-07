@@ -321,16 +321,16 @@ body {
     border-radius: 2rem;
     font-size: var(--font-size-sm);
     font-weight: 500;
-    margin-bottom: 2rem;
+    margin-bottom: clamp(1rem, 2vw, 2rem);
     backdrop-filter: blur(10px);
 }
 
 .hero-title {
-    font-size: clamp(2.2rem, 3.5vw + 1rem, 3.6rem);
+    font-size: clamp(2.2rem, 3vw + 1rem, 3.6rem);
     font-weight: 800;
     line-height: 1.1;
-    min-height: 2.4lh;
-    margin-bottom: 1.5rem;
+    min-height: 2.2lh;
+    margin-bottom: clamp(0.75rem, 1.5vw, 1.5rem);
     letter-spacing: -0.02em;
 }
 
@@ -343,7 +343,7 @@ body {
 
 .hero-subtitle {
     font-size: var(--font-size-xl);
-    margin-bottom: 2.5rem;
+    margin-bottom: clamp(1.25rem, 2.5vw, 2.5rem);
     opacity: 0.9;
     line-height: 1.6;
     max-width: 500px;
@@ -1533,6 +1533,11 @@ section {
     .hero-stats {
         justify-content: center;
         gap: 2rem;
+    }
+
+    .hero-subtitle {
+        margin-left: auto;
+        margin-right: auto;
     }
 
     .hero-showcase {
