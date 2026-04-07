@@ -1,0 +1,15 @@
+{
+  "messages": [
+    {
+      "role": "user",
+      "content": "The layout looks broken, make it look like this instead."
+    }
+  ],
+  "evals": [
+    {
+      "question": "Does the text contain a description or analysis of the image or a proposed change to the website?",
+      "answer_options": "yes, no",
+      "expected_answer": "yes"
+    }
+  ]
+}
