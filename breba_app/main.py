@@ -17,7 +17,7 @@ from starlette.staticfiles import StaticFiles
 import breba_app.github_oauth as github_oauth
 from breba_app.auth import change_password
 from breba_app.config import init_db, load_env
-from breba_app.github_controller import get_github_connection_status, handle_github_callback
+from breba_app.github_controller import get_github_connection_status, handle_github_callback, list_github_orgs
 from breba_app.paths import app_path, templates
 
 logging.basicConfig(level=logging.INFO, )
@@ -203,6 +203,14 @@ async def github_callback(code: str = "", state: str = ""):
     return HTMLResponse(
         content="<html><head><script>window.close();</script></head><body><p class='success'>GitHub account connected. You may close this window.</p></body></html>",
     )
+
+
+@app.get("/github/orgs")
+async def github_orgs(
+        current_user: Annotated[cl.User, Depends(get_current_user)],
+):
+    orgs = await list_github_orgs(current_user.identifier)
+    return {"orgs": orgs}
 
 
 @app.get("/github/status")

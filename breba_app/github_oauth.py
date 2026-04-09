@@ -10,13 +10,14 @@ import httpx
 GITHUB_AUTHORIZE_URL = "https://github.com/login/oauth/authorize"
 GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token"
 GITHUB_API_USER_URL = "https://api.github.com/user"
+GITHUB_API_ORGS_URL = "https://api.github.com/user/orgs"
 
 
 def build_github_auth_url(client_id: str, state: str) -> str:
-    """Return GitHub OAuth authorization URL with repo scope."""
+    """Return GitHub OAuth authorization URL with repo and org scopes."""
     params = urlencode({
         "client_id": client_id,
-        "scope": "repo",
+        "scope": "repo read:org",
         "state": state,
     })
     return f"{GITHUB_AUTHORIZE_URL}?{params}"
@@ -81,5 +82,19 @@ async def get_github_username(token: str) -> str:
         response.raise_for_status()
         data = response.json()
         return data["login"]
+
+
+async def get_github_orgs(token: str) -> list[str]:
+    """GET /user/orgs from GitHub API, return list of org login names."""
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            GITHUB_API_ORGS_URL,
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Accept": "application/json",
+            },
+        )
+        response.raise_for_status()
+        return [org["login"] for org in response.json()]
 
 

@@ -16,7 +16,8 @@ class Product(Document):
     user: Link[User]
     active: bool = False
     cost: float = 0
-    github_repo: str | None = None  # "owner/repo-name" once deployed to GitHub
+    github_org: str | None = None   # org chosen at first GitHub deploy
+    github_repo: str | None = None  # "org/repo-name" once deployed to GitHub
     created_at: datetime.datetime = Field(default_factory=lambda: datetime.datetime.now(datetime.UTC))
 
     # Back-reference to deployments

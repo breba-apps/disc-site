@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import logging
 import re
@@ -25,8 +26,9 @@ def slugify(name: str) -> str:
     return slug or "breba-page"
 
 
-async def create_repo(token: str, repo_name: str) -> dict:
-    """Create a new public repo. Returns repo info with 'name', 'full_name', 'html_url'.
+async def create_repo(token: str, org: str, repo_name: str) -> dict:
+    """Create a new public repo under an org.
+    Returns repo info with 'name', 'full_name', 'html_url'.
     If repo_name is taken, appends -1, -2, ... until a free name is found.
     """
     async with httpx.AsyncClient() as client:
@@ -34,7 +36,7 @@ async def create_repo(token: str, repo_name: str) -> dict:
         suffix = 0
         while True:
             response = await client.post(
-                f"{GITHUB_API_BASE}/user/repos",
+                f"{GITHUB_API_BASE}/orgs/{org}/repos",
                 headers=_auth_headers(token),
                 json={"name": candidate, "private": False, "auto_init": True},
             )
@@ -67,24 +69,36 @@ async def push_file(
     repo_name: str,
     path: str,
     content: str | bytes,
+    retries: int = 3,
+    retry_delay: float = 3.0,
 ) -> None:
-    """Create or update a single file in the repo."""
+    """Create or update a single file in the repo.
+
+    Retries on 404 to handle the brief window after repo creation where
+    GitHub's contents API isn't fully ready yet.
+    """
     if isinstance(content, str):
         content = content.encode()
     encoded = base64.b64encode(content).decode()
 
-    sha = await get_file_sha(token, owner, repo_name, path)
-    body: dict = {"message": f"Update {path}", "content": encoded}
-    if sha:
-        body["sha"] = sha
+    for attempt in range(retries):
+        sha = await get_file_sha(token, owner, repo_name, path)
+        body: dict = {"message": f"Update {path}", "content": encoded}
+        if sha:
+            body["sha"] = sha
 
-    async with httpx.AsyncClient() as client:
-        response = await client.put(
-            f"{GITHUB_API_BASE}/repos/{owner}/{repo_name}/contents/{path}",
-            headers=_auth_headers(token),
-            json=body,
-        )
-        response.raise_for_status()
+        async with httpx.AsyncClient() as client:
+            response = await client.put(
+                f"{GITHUB_API_BASE}/repos/{owner}/{repo_name}/contents/{path}",
+                headers=_auth_headers(token),
+                json=body,
+            )
+            if response.status_code == 404 and attempt < retries - 1:
+                logger.warning("push_file 404 for %s/%s/%s, retrying in %.0fs...", owner, repo_name, path, retry_delay)
+                await asyncio.sleep(retry_delay)
+                continue
+            response.raise_for_status()
+            return
 
 
 async def push_files(

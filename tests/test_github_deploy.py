@@ -45,8 +45,8 @@ async def test_create_repo_success(mocker):
     mock_response.status_code = 201
     mock_response.json.return_value = {
         "name": "my-repo",
-        "full_name": "octocat/my-repo",
-        "html_url": "https://github.com/octocat/my-repo",
+        "full_name": "acme-corp/my-repo",
+        "html_url": "https://github.com/acme-corp/my-repo",
     }
 
     mock_client = mocker.AsyncMock()
@@ -56,9 +56,10 @@ async def test_create_repo_success(mocker):
     mocker.patch("breba_app.github_deploy.httpx.AsyncClient", return_value=mock_client)
 
     from breba_app.github_deploy import create_repo
-    result = await create_repo("token123", "my-repo")
+    result = await create_repo("token123", "acme-corp", "my-repo")
     assert result["name"] == "my-repo"
-    assert result["full_name"] == "octocat/my-repo"
+    assert result["full_name"] == "acme-corp/my-repo"
+    assert "orgs/acme-corp/repos" in mock_client.post.call_args.args[0]
 
 
 @pytest.mark.asyncio
@@ -68,7 +69,7 @@ async def test_create_repo_name_conflict_retries(mocker):
 
     success = mocker.MagicMock()
     success.status_code = 201
-    success.json.return_value = {"name": "my-repo-1", "full_name": "octocat/my-repo-1", "html_url": ""}
+    success.json.return_value = {"name": "my-repo-1", "full_name": "acme-corp/my-repo-1", "html_url": ""}
 
     mock_client = mocker.AsyncMock()
     mock_client.__aenter__ = mocker.AsyncMock(return_value=mock_client)
@@ -77,7 +78,7 @@ async def test_create_repo_name_conflict_retries(mocker):
     mocker.patch("breba_app.github_deploy.httpx.AsyncClient", return_value=mock_client)
 
     from breba_app.github_deploy import create_repo
-    result = await create_repo("token123", "my-repo")
+    result = await create_repo("token123", "acme-corp", "my-repo")
     assert result["name"] == "my-repo-1"
     assert mock_client.post.call_count == 2
 

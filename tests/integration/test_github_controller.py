@@ -90,11 +90,19 @@ async def test_get_github_username_real_api():
 async def test_deploy_to_github_first_deploy(mock_user):
     load_env(".env.integration_tests")
     token = os.getenv("GITHUB_TEST_TOKEN")
-    if not token:
-        pytest.skip("GITHUB_TEST_TOKEN not set in .env.integration_tests")
+    org = os.getenv("GITHUB_TEST_ORG")
+    if not token or not org:
+        pytest.skip("GITHUB_TEST_TOKEN and GITHUB_TEST_ORG must be set in .env.integration_tests")
 
     gh_username = await get_github_username(token)
     await connect_github_to_user(mock_user.username, token, gh_username)
+
+    # Clean up any leftover repos from previous failed runs
+    for candidate in ["test-deploy-page", "test-deploy-page-1", "test-deploy-page-2"]:
+        try:
+            await delete_repo(token, org, candidate)
+        except Exception:
+            pass
 
     product = Product(
         product_id=uuid.uuid4().hex,
@@ -104,8 +112,7 @@ async def test_deploy_to_github_first_deploy(mock_user):
     )
     await product.save()
 
-    # Patch read_all_files_in_memory to return a fake file store
-    from unittest.mock import AsyncMock, MagicMock, patch
+    from unittest.mock import AsyncMock, patch
     from breba_app.filesystem.in_memory_store import InMemoryFileStore
     from breba_app.filesystem.models import FileWrite
 
@@ -113,21 +120,21 @@ async def test_deploy_to_github_first_deploy(mock_user):
         "index.html": FileWrite(path="index.html", content=b"<html><body>Hello GitHub Pages</body></html>"),
     })
     with patch("breba_app.github_controller.read_all_files_in_memory", new=AsyncMock(return_value=fake_store)):
-        result = await deploy_to_github(mock_user.username, product.product_id)
+        result = await deploy_to_github(mock_user.username, product.product_id, org=org)
 
     # Cleanup: delete repo from GitHub
     if result.success and result.repo_url:
         repo_name = result.repo_url.split("/")[-1]
         try:
-            await delete_repo(token, gh_username, repo_name)
+            await delete_repo(token, org, repo_name)
         except Exception:
             pass
 
     await product.delete()
 
     assert result.success, result.error
-    assert result.pages_url == get_pages_url(gh_username, "test-deploy-page")
-    assert result.repo_url == f"https://github.com/{gh_username}/test-deploy-page"
+    assert result.pages_url == get_pages_url(org, "test-deploy-page")
+    assert result.repo_url == f"https://github.com/{org}/test-deploy-page"
 
 
 @pytest.mark.asyncio
@@ -152,6 +159,27 @@ async def test_deploy_to_github_no_github_connected(mock_user):
 @pytest.mark.asyncio
 async def test_deploy_to_github_product_not_found(mock_user):
     await connect_github_to_user(mock_user.username, "fake_token", "octocat")
-    result = await deploy_to_github(mock_user.username, "nonexistent_product_id")
+    result = await deploy_to_github(mock_user.username, "nonexistent_product_id", org="acme-corp")
     assert not result.success
     assert "not found" in result.error.lower()
+
+
+@pytest.mark.asyncio
+async def test_deploy_to_github_missing_org(mock_user):
+    """First deploy without providing an org returns an error."""
+    await connect_github_to_user(mock_user.username, "fake_token", "octocat")
+
+    product = Product(
+        product_id=uuid.uuid4().hex,
+        name="Some Page",
+        user=mock_user,
+        active=True,
+    )
+    await product.save()
+
+    result = await deploy_to_github(mock_user.username, product.product_id, org=None)
+
+    await product.delete()
+
+    assert not result.success
+    assert "organization" in result.error.lower()

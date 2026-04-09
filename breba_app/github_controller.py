@@ -10,7 +10,7 @@ from breba_app.github_deploy import (
     push_files,
     slugify,
 )
-from breba_app.github_oauth import exchange_code_for_token, get_github_username, verify_state
+from breba_app.github_oauth import exchange_code_for_token, get_github_orgs, get_github_username, verify_state
 from breba_app.models.product import Product
 from breba_app.models.user import User
 from breba_app.storage import read_all_files_in_memory
@@ -71,8 +71,19 @@ class GitHubDeployResult:
     error: str | None = None
 
 
-async def deploy_to_github(username: str, product_id: str) -> GitHubDeployResult:
-    """Deploy product files to GitHub Pages under the user's account."""
+async def list_github_orgs(username: str) -> list[str]:
+    """Return the list of GitHub org names for the connected user."""
+    user = await User.find_one(User.username == username)
+    if not user or not user.github_access_token:
+        return []
+    return await get_github_orgs(user.github_access_token)
+
+
+async def deploy_to_github(username: str, product_id: str, org: str | None = None) -> GitHubDeployResult:
+    """Deploy product files to GitHub Pages under an org.
+
+    On first deploy, `org` is required. It is stored on the product and reused on re-deploys.
+    """
     user = await User.find_one(User.username == username)
     if not user or not user.github_access_token:
         return GitHubDeployResult(success=False, error="GitHub account not connected.")
@@ -82,30 +93,31 @@ async def deploy_to_github(username: str, product_id: str) -> GitHubDeployResult
         return GitHubDeployResult(success=False, error=f"Product not found: {product_id}")
 
     token = user.github_access_token
-    owner = user.github_username
 
     try:
         file_store = await read_all_files_in_memory(username, product_id)
-        files = {
-            path: fw.content
-            for path, fw in file_store._files.items()
-        }
+        files = {path: fw.content for path, fw in file_store._files.items()}
 
         if product.github_repo:
             # Re-deploy: push updated files to existing repo
-            repo_name = product.github_repo.split("/", 1)[1]
+            deploy_org, repo_name = product.github_repo.split("/", 1)
+            await push_files(token, deploy_org, repo_name, files)
         else:
-            # First deploy: create repo
+            # First deploy: org is required
+            if not org:
+                return GitHubDeployResult(success=False, error="An organization name is required for the first deploy.")
             repo_name = slugify(product.name or "breba-page")
-            repo_info = await create_repo(token, repo_name)
+            repo_info = await create_repo(token, org, repo_name)
             repo_name = repo_info["name"]  # may have been suffixed for uniqueness
-            await enable_pages(token, owner, repo_name)
-            await product.update(Set({Product.github_repo: f"{owner}/{repo_name}"}))
+            deploy_org = org
+            # Push files before enabling Pages — Pages API requires content on the branch
+            await push_files(token, deploy_org, repo_name, files)
+            await enable_pages(token, deploy_org, repo_name)
+            await product.update(Set({Product.github_repo: f"{deploy_org}/{repo_name}"}))
 
-        await push_files(token, owner, repo_name, files)
 
-        pages_url = get_pages_url(owner, repo_name)
-        repo_url = f"https://github.com/{owner}/{repo_name}"
+        pages_url = get_pages_url(deploy_org, repo_name)
+        repo_url = f"https://github.com/{deploy_org}/{repo_name}"
         return GitHubDeployResult(success=True, pages_url=pages_url, repo_url=repo_url)
 
     except Exception as exc:

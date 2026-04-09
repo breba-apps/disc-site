@@ -2,17 +2,19 @@ import pytest
 
 from breba_app.github_oauth import (
     build_github_auth_url,
-    generate_state,
-    verify_state,
     exchange_code_for_token,
+    generate_state,
+    get_github_orgs,
     get_github_username,
+    verify_state,
 )
 
 
 def test_build_github_auth_url():
     url = build_github_auth_url(client_id="my_client_id", state="my_state")
     assert "client_id=my_client_id" in url
-    assert "scope=repo" in url
+    assert "repo" in url
+    assert "read%3Aorg" in url  # "read:org" URL-encoded
     assert "state=my_state" in url
     assert url.startswith("https://github.com/login/oauth/authorize")
 
@@ -92,3 +94,23 @@ async def test_get_github_username(mocker):
 
     username = await get_github_username("ghs_token123")
     assert username == "octocat"
+
+
+@pytest.mark.asyncio
+async def test_get_github_orgs(mocker):
+    mock_response = mocker.MagicMock()
+    mock_response.json.return_value = [
+        {"login": "acme-corp", "id": 1},
+        {"login": "breba-apps", "id": 2},
+    ]
+    mock_response.raise_for_status = mocker.MagicMock()
+
+    mock_client = mocker.AsyncMock()
+    mock_client.get.return_value = mock_response
+    mock_client.__aenter__ = mocker.AsyncMock(return_value=mock_client)
+    mock_client.__aexit__ = mocker.AsyncMock(return_value=False)
+
+    mocker.patch("breba_app.github_oauth.httpx.AsyncClient", return_value=mock_client)
+
+    orgs = await get_github_orgs("ghs_token123")
+    assert orgs == ["acme-corp", "breba-apps"]
