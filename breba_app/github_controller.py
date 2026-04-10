@@ -10,6 +10,7 @@ from breba_app.github_deploy import (
     push_files,
     slugify,
 )
+from breba_app.crypto import decrypt_token, encrypt_token
 from breba_app.github_oauth import exchange_code_for_token, get_github_orgs, get_github_username, verify_state
 from breba_app.models.product import Product
 from breba_app.models.user import User
@@ -36,7 +37,7 @@ async def connect_github_to_user(username: str, access_token: str, github_userna
     user = await User.find_one(User.username == username)
     if not user:
         raise ValueError(f"User not found: {username}")
-    user.github_access_token = access_token
+    user.github_access_token = encrypt_token(access_token)
     user.github_username = github_username
     await user.save()
 
@@ -76,7 +77,7 @@ async def list_github_orgs(username: str) -> list[str]:
     user = await User.find_one(User.username == username)
     if not user or not user.github_access_token:
         return []
-    return await get_github_orgs(user.github_access_token)
+    return await get_github_orgs(decrypt_token(user.github_access_token))
 
 
 async def deploy_to_github(username: str, product_id: str, org: str | None = None) -> GitHubDeployResult:
@@ -92,7 +93,7 @@ async def deploy_to_github(username: str, product_id: str, org: str | None = Non
     if not product:
         return GitHubDeployResult(success=False, error=f"Product not found: {product_id}")
 
-    token = user.github_access_token
+    token = decrypt_token(user.github_access_token)
 
     try:
         file_store = await read_all_files_in_memory(username, product_id)
