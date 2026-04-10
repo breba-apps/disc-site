@@ -1,30 +1,18 @@
-<div class="d-flex flex-column h-100">
-    <!-- Input + Button row -->
-    <div class="mb-3">
-        <label for="sitename" class="form-label">Website Name</label>
+<div class="d-flex flex-column h-100 gap-4">
+
+    <!-- Deploy with Breba -->
+    <div>
+        <h6 class="fw-semibold mb-2">Deploy with Breba</h6>
         <div class="input-group">
             <input type="text" id="sitename" class="form-control" placeholder="e.g. my-portfolio">
             <button id="deploy-button" class="btn btn-primary">Deploy</button>
         </div>
+        <p id="deploy-status" class="form-text text-muted mt-2"></p>
     </div>
 
-    <!-- Status message -->
-    <p id="deploy-status" class="form-text text-muted mt-2">
-    </p>
-
-    <!-- List of known deployments -->
-    <div id="deploy-list" class="d-flex flex-column gap-2 mt-3"></div>
-    <template id="deploy-card-template">
-        <div class="card border rounded-3 shadow-sm px-3 py-2" data-id="">
-            <a class="fw-medium text-decoration-none text-primary text-break url-link" target="_blank"
-               rel="noopener noreferrer"></a>
-        </div>
-    </template>
-
-    <!-- GitHub Pages section -->
-    <hr class="my-3">
-    <div id="github-section">
-        <h6 class="fw-semibold mb-2">Deploy to GitHub Pages</h6>
+    <!-- Deploy with GitHub -->
+    <div>
+        <h6 class="fw-semibold mb-2">Deploy with GitHub</h6>
 
         <!-- Not connected state -->
         <div id="github-not-connected">
@@ -32,9 +20,9 @@
             <button id="github-connect-btn" class="btn btn-outline-secondary btn-sm">Connect GitHub</button>
         </div>
 
-        <!-- Connected state -->
-        <div id="github-connected" class="d-none">
-            <p id="github-connected-text" class="form-text text-success mb-2"></p>
+        <!-- Connected, no existing repo — show org selector -->
+        <div id="github-connected-new" class="d-none">
+            <p id="github-connected-text-new" class="form-text text-success mb-2"></p>
             <div class="mb-2">
                 <label for="github-org" class="form-label form-label-sm">Organization</label>
                 <select id="github-org" class="form-select form-select-sm">
@@ -44,9 +32,50 @@
             <button id="github-deploy-btn" class="btn btn-dark btn-sm">Deploy to GitHub Pages</button>
         </div>
 
-        <!-- GitHub deploy status -->
+        <!-- Connected, repo already exists — just redeploy -->
+        <div id="github-connected-existing" class="d-none">
+            <p id="github-connected-text-existing" class="form-text text-success mb-2"></p>
+            <button id="github-redeploy-btn" class="btn btn-dark btn-sm">Redeploy to GitHub Pages</button>
+        </div>
+
         <p id="github-deploy-status" class="form-text mt-2"></p>
     </div>
+
+    <!-- Deployed Sites -->
+    <div>
+        <h6 class="fw-semibold mb-2">Deployed Sites</h6>
+        <div id="deploy-list" class="d-flex flex-column gap-2"></div>
+        <p id="no-deployments-text" class="form-text text-muted">No deployments yet.</p>
+    </div>
+
+    <!-- Templates -->
+    <template id="deploy-card-breba">
+        <div class="card border rounded-3 shadow-sm px-3 py-2" data-id="">
+            <a class="fw-medium text-decoration-none text-primary text-break url-link" target="_blank"
+               rel="noopener noreferrer"></a>
+        </div>
+    </template>
+    <template id="deploy-card-github">
+        <div class="card border rounded-3 shadow-sm px-3 py-2" data-id="github">
+            <div class="d-flex align-items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38
+                             0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13
+                             -.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87
+                             2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95
+                             0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21
+                             2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04
+                             2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82
+                             2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0
+                             1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+                </svg>
+                <a class="fw-medium text-decoration-none text-primary text-break pages-link" target="_blank"
+                   rel="noopener noreferrer"></a>
+                <a class="text-muted small text-decoration-none repo-link ms-auto" target="_blank"
+                   rel="noopener noreferrer">repo</a>
+            </div>
+        </div>
+    </template>
 </div>
 
 <script>
@@ -67,79 +96,84 @@
             statusText.textContent = "Please enter a site name.";
             return;
         }
-
         statusText.textContent = "Deploying...";
         const chat = document.getElementById('chainlit');
         if (chat) {
-            chat.contentWindow.postMessage({
-                method: "deploy",
-                body: sitename
-            }, '*');
+            chat.contentWindow.postMessage({method: "deploy", body: sitename}, '*');
         }
     }
 
     deployButton.addEventListener("click", triggerDeploy);
-
     sitenameInput.addEventListener("keydown", (event) => {
-        if (event.key === "Enter") {
-            triggerDeploy();
-        }
+        if (event.key === "Enter") triggerDeploy();
     });
 
-    // Updates to builder panel
-    window.addEventListener('message', (event) => {
-        if (event.data.method === "deploy_status") {
-            console.log('Deploy status message:', event.data);
-            statusText.innerHTML = autoLink(event.data.body);
-        } else if (event.data.method === "update_deployments_list") {
-            const deployList = document.getElementById("deploy-list");
-            const template = document.getElementById("deploy-card-template");
+    // Deployments list rendering
+    function renderDeployments(deployments) {
+        const deployList = document.getElementById("deploy-list");
+        const noDeploymentsText = document.getElementById("no-deployments-text");
+        deployList.innerHTML = "";
 
-            deployList.innerHTML = "";
+        if (!deployments || deployments.length === 0) {
+            noDeploymentsText.classList.remove("d-none");
+            return;
+        }
+        noDeploymentsText.classList.add("d-none");
 
-            const deployments = event.data.body || [];
+        const lastBreba = deployments.find(d => d.type === "breba");
+        if (lastBreba && lastBreba.deployment_id && !sitenameInput.value) {
+            sitenameInput.value = lastBreba.deployment_id;
+        }
 
-            deployments.forEach(({id, url}) => {
-                const clone = template.content.cloneNode(true);
-
-                const card = clone.querySelector(".card");
-                const urlLink = clone.querySelector(".url-link");
-                urlLink.href = url;
-                urlLink.textContent = url;
-
-                card.dataset.id = id;
-
+        deployments.forEach(({id, url, repo_url, type}) => {
+            if (type === "github") {
+                const tmpl = document.getElementById("deploy-card-github");
+                const clone = tmpl.content.cloneNode(true);
+                const pagesLink = clone.querySelector(".pages-link");
+                pagesLink.href = url;
+                pagesLink.textContent = url;
+                const repoLink = clone.querySelector(".repo-link");
+                if (repo_url) {
+                    repoLink.href = repo_url;
+                } else {
+                    repoLink.remove();
+                }
                 deployList.appendChild(clone);
-            });
-        } else if (event.data.method === "github_deploy_status") {
-            const result = event.data.body;
-            const githubStatus = document.getElementById("github-deploy-status");
-            const deployBtn = document.getElementById("github-deploy-btn");
-            deployBtn.disabled = false;
-            deployBtn.textContent = "Deploy to GitHub Pages";
-            if (result.success) {
-                githubStatus.innerHTML = `Deployed! Pages URL: <a href="${result.pages_url}" target="_blank" rel="noopener noreferrer">${result.pages_url}</a><br><small class="text-muted">GitHub Pages can take 1–2 minutes to publish.</small>`;
             } else {
-                githubStatus.textContent = `Error: ${result.error}`;
+                const tmpl = document.getElementById("deploy-card-breba");
+                const clone = tmpl.content.cloneNode(true);
+                const card = clone.querySelector(".card");
+                card.dataset.id = id;
+                const link = clone.querySelector(".url-link");
+                link.href = url;
+                link.textContent = url;
+                deployList.appendChild(clone);
             }
-        }
-    });
+        });
+    }
 
     // GitHub connect / deploy logic
     const githubNotConnected = document.getElementById("github-not-connected");
-    const githubConnected = document.getElementById("github-connected");
-    const githubConnectedText = document.getElementById("github-connected-text");
+    const githubConnectedNew = document.getElementById("github-connected-new");
+    const githubConnectedExisting = document.getElementById("github-connected-existing");
+    const githubConnectedTextNew = document.getElementById("github-connected-text-new");
+    const githubConnectedTextExisting = document.getElementById("github-connected-text-existing");
     const githubOrgSelect = document.getElementById("github-org");
     const githubDeployBtn = document.getElementById("github-deploy-btn");
+    const githubRedeployBtn = document.getElementById("github-redeploy-btn");
     const githubConnectBtn = document.getElementById("github-connect-btn");
     const githubDeployStatus = document.getElementById("github-deploy-status");
+
+    let githubConnectedUsername = null;
+    let currentGithubRepo = null;
 
     async function checkGitHubStatus() {
         try {
             const response = await fetch("/github/status");
             const data = await response.json();
             if (data.connected) {
-                await showGitHubConnected(data.github_username);
+                githubConnectedUsername = data.github_username;
+                applyGitHubUI();
             } else {
                 showGitHubNotConnected();
             }
@@ -150,14 +184,24 @@
 
     function showGitHubNotConnected() {
         githubNotConnected.classList.remove("d-none");
-        githubConnected.classList.add("d-none");
+        githubConnectedNew.classList.add("d-none");
+        githubConnectedExisting.classList.add("d-none");
     }
 
-    async function showGitHubConnected(username) {
+    async function applyGitHubUI() {
+        if (!githubConnectedUsername) return;
         githubNotConnected.classList.add("d-none");
-        githubConnected.classList.remove("d-none");
-        githubConnectedText.textContent = `Connected as @${username}`;
-        await loadOrgs();
+
+        if (currentGithubRepo) {
+            githubConnectedNew.classList.add("d-none");
+            githubConnectedExisting.classList.remove("d-none");
+            githubConnectedTextExisting.textContent = `Connected as @${githubConnectedUsername}`;
+        } else {
+            githubConnectedExisting.classList.add("d-none");
+            githubConnectedNew.classList.remove("d-none");
+            githubConnectedTextNew.textContent = `Connected as @${githubConnectedUsername}`;
+            await loadOrgs();
+        }
     }
 
     async function loadOrgs() {
@@ -177,6 +221,18 @@
         }
     }
 
+    function triggerGithubDeploy(org) {
+        githubDeployStatus.textContent = "";
+        githubDeployBtn.disabled = true;
+        githubDeployBtn.textContent = "Deploying...";
+        githubRedeployBtn.disabled = true;
+        githubRedeployBtn.textContent = "Deploying...";
+        const chat = document.getElementById('chainlit');
+        if (chat) {
+            chat.contentWindow.postMessage({method: "deploy_github", body: {org}}, '*');
+        }
+    }
+
     githubConnectBtn.addEventListener("click", () => {
         const popup = window.open("/github/connect", "github-connect", "width=600,height=700");
         const poll = setInterval(async () => {
@@ -193,18 +249,42 @@
             githubDeployStatus.textContent = "Please select an organization.";
             return;
         }
-        githubDeployStatus.textContent = "";
-        githubDeployBtn.disabled = true;
-        githubDeployBtn.textContent = "Deploying...";
-        const chat = document.getElementById('chainlit');
-        if (chat) {
-            chat.contentWindow.postMessage({
-                method: "deploy_github",
-                body: {org}
-            }, '*');
+        triggerGithubDeploy(org);
+    });
+
+    githubRedeployBtn.addEventListener("click", () => {
+        triggerGithubDeploy(null);
+    });
+
+    // Incoming messages from Chainlit
+    window.addEventListener('message', (event) => {
+        const {method, body} = event.data;
+
+        if (method === "deploy_status") {
+            statusText.innerHTML = autoLink(body);
+
+        } else if (method === "update_deployments_list") {
+            renderDeployments(body);
+
+        } else if (method === "github_product_status") {
+            currentGithubRepo = body.github_repo || null;
+            if (githubConnectedUsername) applyGitHubUI();
+
+        } else if (method === "github_deploy_status") {
+            githubDeployBtn.disabled = false;
+            githubDeployBtn.textContent = "Deploy to GitHub Pages";
+            githubRedeployBtn.disabled = false;
+            githubRedeployBtn.textContent = "Redeploy to GitHub Pages";
+            if (body.success) {
+                githubDeployStatus.innerHTML =
+                    `Deployed! <a href="${body.pages_url}" target="_blank" rel="noopener noreferrer">${body.pages_url}</a>` +
+                    `<br><small class="text-muted">GitHub Pages can take 1–2 minutes to publish.</small>`;
+            } else {
+                githubDeployStatus.textContent = `Error: ${body.error}`;
+            }
         }
     });
 
-    // Check GitHub status on load
+    // Init
     checkGitHubStatus();
 </script>

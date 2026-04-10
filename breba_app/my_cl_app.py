@@ -16,6 +16,7 @@ from breba_app.config import SPEC_FILE_NAME, INDEX_FILE_NAME
 from breba_app.controllers.product_controller import delete_product, rename_product
 from breba_app.events.bus import HandleContext, Consumer, event_bus
 from breba_app.github_controller import deploy_to_github
+from breba_app.github_deploy import get_pages_url
 from breba_app.events.coder_completed import CoderCompleted
 from breba_app.filesystem import InMemoryFileStore, FileWrite
 from breba_app.models.deployment import Deployment
@@ -114,16 +115,27 @@ async def coder_completed(user_name: str, product_id: str, file_store: InMemoryF
     await event_bus.emit(CoderCompleted(user_name=user_name, product_id=product_id, filestore=file_store))
 
 
-async def update_deployments_list(product_id: PydanticObjectId):
-    deployments = await Deployment.find(Deployment.product == DBRef("products", product_id)).sort(
+async def update_deployments_list(product: Product):
+    deployments = await Deployment.find(Deployment.product == DBRef("products", product.id)).sort(
         [("deployed_at", SortDirection.DESCENDING)]).to_list()
 
-    if not deployments:
-        return  # Nothing do here
-
     deployments_list = [{"id": str(deployment.id), "deployment_id": deployment.deployment_id,
-                         "url": get_public_url(deployment.deployment_id)} for deployment in deployments]
+                         "url": get_public_url(deployment.deployment_id), "type": "breba"} for deployment in deployments]
+
+    if product.github_repo:
+        org, repo_name = product.github_repo.split("/", 1)
+        pages_url = get_pages_url(org, repo_name)
+        deployments_list.append({
+            "id": "github",
+            "url": pages_url,
+            "repo_url": f"https://github.com/{product.github_repo}",
+            "type": "github",
+        })
+
     await cl.send_window_message({"method": "update_deployments_list", "body": deployments_list})
+    await cl.send_window_message({"method": "github_product_status", "body": {
+        "github_repo": product.github_repo,
+    }})
 
 
 @cl.on_chat_start
@@ -155,7 +167,7 @@ async def main():
         asyncio.create_task(update_versions_list(versions, active_version))
 
         # Update deployments list in the UI
-        asyncio.create_task(update_deployments_list(active_product.id))
+        asyncio.create_task(update_deployments_list(active_product))
 
         has_storage = await has_cloud_storage(user_name, active_product.product_id)
         product_id = active_product.product_id
@@ -230,7 +242,7 @@ async def window_message(message: str | dict):
 
         await asyncio.gather(cl.Message(content=message_text).send(),
                              cl.send_window_message({"method": "deploy_status", "body": message_text}),
-                             update_deployments_list(product.id))
+                             update_deployments_list(product))
     elif method == "deploy_github":
         org = message.get("body", {}).get("org")
         result = await deploy_to_github(user_name, product_id, org=org)
@@ -241,9 +253,13 @@ async def window_message(message: str | dict):
             "error": result.error,
         }})
         if result.success:
-            await cl.Message(
-                content=f"Deployed to GitHub Pages: {result.pages_url}\n\nNote: GitHub Pages can take 1–2 minutes to publish."
-            ).send()
+            product = await Product.find_one(Product.product_id == product_id)
+            await asyncio.gather(
+                cl.Message(
+                    content=f"Deployed to GitHub Pages: {result.pages_url}\n\nNote: GitHub Pages can take 1–2 minutes to publish."
+                ).send(),
+                update_deployments_list(product),
+            )
         else:
             await cl.Message(content=f"GitHub deploy failed: {result.error}").send()
     elif method == "create_new_product":
