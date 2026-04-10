@@ -10,6 +10,8 @@ class User(Document):
     username: str = Field(..., unique=True)
     password_hash: str
     created_at: datetime.datetime = Field(default_factory=lambda: datetime.datetime.now(datetime.UTC))
+    github_access_token: str | None = None
+    github_username: str | None = None
 
     # Back-reference: products created by this user
     products: Optional[List[BackLink["Product"]]] = Field(
