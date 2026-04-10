@@ -20,6 +20,33 @@
                rel="noopener noreferrer"></a>
         </div>
     </template>
+
+    <!-- GitHub Pages section -->
+    <hr class="my-3">
+    <div id="github-section">
+        <h6 class="fw-semibold mb-2">Deploy to GitHub Pages</h6>
+
+        <!-- Not connected state -->
+        <div id="github-not-connected">
+            <p class="form-text mb-2">Connect your GitHub account to deploy to GitHub Pages.</p>
+            <button id="github-connect-btn" class="btn btn-outline-secondary btn-sm">Connect GitHub</button>
+        </div>
+
+        <!-- Connected state -->
+        <div id="github-connected" class="d-none">
+            <p id="github-connected-text" class="form-text text-success mb-2"></p>
+            <div class="mb-2">
+                <label for="github-org" class="form-label form-label-sm">Organization</label>
+                <select id="github-org" class="form-select form-select-sm">
+                    <option value="">Select an organization...</option>
+                </select>
+            </div>
+            <button id="github-deploy-btn" class="btn btn-dark btn-sm">Deploy to GitHub Pages</button>
+        </div>
+
+        <!-- GitHub deploy status -->
+        <p id="github-deploy-status" class="form-text mt-2"></p>
+    </div>
 </div>
 
 <script>
@@ -84,6 +111,100 @@
 
                 deployList.appendChild(clone);
             });
+        } else if (event.data.method === "github_deploy_status") {
+            const result = event.data.body;
+            const githubStatus = document.getElementById("github-deploy-status");
+            const deployBtn = document.getElementById("github-deploy-btn");
+            deployBtn.disabled = false;
+            deployBtn.textContent = "Deploy to GitHub Pages";
+            if (result.success) {
+                githubStatus.innerHTML = `Deployed! Pages URL: <a href="${result.pages_url}" target="_blank" rel="noopener noreferrer">${result.pages_url}</a><br><small class="text-muted">GitHub Pages can take 1–2 minutes to publish.</small>`;
+            } else {
+                githubStatus.textContent = `Error: ${result.error}`;
+            }
         }
     });
+
+    // GitHub connect / deploy logic
+    const githubNotConnected = document.getElementById("github-not-connected");
+    const githubConnected = document.getElementById("github-connected");
+    const githubConnectedText = document.getElementById("github-connected-text");
+    const githubOrgSelect = document.getElementById("github-org");
+    const githubDeployBtn = document.getElementById("github-deploy-btn");
+    const githubConnectBtn = document.getElementById("github-connect-btn");
+    const githubDeployStatus = document.getElementById("github-deploy-status");
+
+    async function checkGitHubStatus() {
+        try {
+            const response = await fetch("/github/status");
+            const data = await response.json();
+            if (data.connected) {
+                await showGitHubConnected(data.github_username);
+            } else {
+                showGitHubNotConnected();
+            }
+        } catch (e) {
+            showGitHubNotConnected();
+        }
+    }
+
+    function showGitHubNotConnected() {
+        githubNotConnected.classList.remove("d-none");
+        githubConnected.classList.add("d-none");
+    }
+
+    async function showGitHubConnected(username) {
+        githubNotConnected.classList.add("d-none");
+        githubConnected.classList.remove("d-none");
+        githubConnectedText.textContent = `Connected as @${username}`;
+        await loadOrgs();
+    }
+
+    async function loadOrgs() {
+        try {
+            const response = await fetch("/github/orgs");
+            const data = await response.json();
+            const orgs = data.orgs || [];
+            githubOrgSelect.innerHTML = '<option value="">Select an organization...</option>';
+            orgs.forEach(org => {
+                const option = document.createElement("option");
+                option.value = org;
+                option.textContent = org;
+                githubOrgSelect.appendChild(option);
+            });
+        } catch (e) {
+            console.error("Failed to load GitHub orgs", e);
+        }
+    }
+
+    githubConnectBtn.addEventListener("click", () => {
+        const popup = window.open("/github/connect", "github-connect", "width=600,height=700");
+        const poll = setInterval(async () => {
+            if (popup && popup.closed) {
+                clearInterval(poll);
+                await checkGitHubStatus();
+            }
+        }, 500);
+    });
+
+    githubDeployBtn.addEventListener("click", () => {
+        const org = githubOrgSelect.value;
+        if (!org) {
+            githubDeployStatus.textContent = "Please select an organization.";
+            return;
+        }
+        githubDeployStatus.textContent = "";
+        githubDeployBtn.disabled = true;
+        githubDeployBtn.textContent = "Deploying...";
+        const chat = document.getElementById('chainlit');
+        if (chat) {
+            chat.contentWindow.postMessage({
+                method: "deploy_github",
+                body: {org}
+            }, '*');
+        }
+    });
+
+    // Check GitHub status on load
+    checkGitHubStatus();
 </script>

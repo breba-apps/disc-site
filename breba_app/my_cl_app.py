@@ -15,6 +15,7 @@ from breba_app.chainlit_bridge import BrebaMessage, from_cl_message
 from breba_app.config import SPEC_FILE_NAME, INDEX_FILE_NAME
 from breba_app.controllers.product_controller import delete_product, rename_product
 from breba_app.events.bus import HandleContext, Consumer, event_bus
+from breba_app.github_controller import deploy_to_github
 from breba_app.events.coder_completed import CoderCompleted
 from breba_app.filesystem import InMemoryFileStore, FileWrite
 from breba_app.models.deployment import Deployment
@@ -230,6 +231,21 @@ async def window_message(message: str | dict):
         await asyncio.gather(cl.Message(content=message_text).send(),
                              cl.send_window_message({"method": "deploy_status", "body": message_text}),
                              update_deployments_list(product.id))
+    elif method == "deploy_github":
+        org = message.get("body", {}).get("org")
+        result = await deploy_to_github(user_name, product_id, org=org)
+        await cl.send_window_message({"method": "github_deploy_status", "body": {
+            "success": result.success,
+            "pages_url": result.pages_url,
+            "repo_url": result.repo_url,
+            "error": result.error,
+        }})
+        if result.success:
+            await cl.Message(
+                content=f"Deployed to GitHub Pages: {result.pages_url}\n\nNote: GitHub Pages can take 1–2 minutes to publish."
+            ).send()
+        else:
+            await cl.Message(content=f"GitHub deploy failed: {result.error}").send()
     elif method == "create_new_product":
         await create_blank_product_for(user_name, PRODUCT_NAME_PLACEHOLDER, True)
         await cl.send_window_message({"method": "reload_product"})
