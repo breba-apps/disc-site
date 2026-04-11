@@ -14,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from starlette.staticfiles import StaticFiles
 
+import httpx
 import breba_app.github_oauth as github_oauth
 from breba_app.auth import change_password
 from breba_app.config import init_db, load_env
@@ -225,6 +226,32 @@ async def github_set_custom_domain(
         return {"success": False, "error": "Domain is required."}
     result = await set_github_custom_domain(current_user.identifier, product_id, domain)
     return {"success": result.success, "error": result.error}
+
+
+GITHUB_PAGES_IPS = {"185.199.108.153", "185.199.109.153", "185.199.110.153", "185.199.111.153"}
+
+
+@app.get("/github/dns-check")
+async def github_dns_check(
+        domain: str,
+        current_user: Annotated[cl.User, Depends(get_current_user)],
+):
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                "https://cloudflare-dns.com/dns-query",
+                params={"name": domain, "type": "A"},
+                headers={"Accept": "application/dns-json"},
+                timeout=5.0,
+            )
+            response.raise_for_status()
+            data = response.json()
+            resolved = [r["data"] for r in data.get("Answer", []) if r.get("type") == 1]
+            verified = any(ip in GITHUB_PAGES_IPS for ip in resolved)
+            return {"resolved": resolved, "verified": verified}
+    except Exception as exc:
+        logger.error("DNS check error for %s: %s", domain, exc)
+        return {"resolved": [], "verified": False}
 
 
 @app.get("/github/status")
