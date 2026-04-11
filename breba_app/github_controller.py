@@ -8,6 +8,7 @@ from breba_app.github_deploy import (
     enable_pages,
     get_pages_url,
     push_files,
+    set_custom_domain,
     slugify,
 )
 from breba_app.crypto import decrypt_token, encrypt_token
@@ -102,6 +103,8 @@ async def deploy_to_github(username: str, product_id: str, org: str | None = Non
         if product.github_repo:
             # Re-deploy: push updated files to existing repo
             deploy_org, repo_name = product.github_repo.split("/", 1)
+            if product.custom_domain:
+                files["CNAME"] = product.custom_domain
             await push_files(token, deploy_org, repo_name, files)
         else:
             # First deploy: org is required
@@ -124,6 +127,34 @@ async def deploy_to_github(username: str, product_id: str, org: str | None = Non
     except Exception as exc:
         logger.error("GitHub deploy error for user %s product %s: %s", username, product_id, exc)
         return GitHubDeployResult(success=False, error=str(exc))
+
+
+@dataclass
+class CustomDomainResult:
+    success: bool
+    error: str | None = None
+
+
+async def set_github_custom_domain(username: str, product_id: str, domain: str) -> CustomDomainResult:
+    """Push CNAME file and update Pages settings, then persist domain to the product."""
+    user = await User.find_one(User.username == username)
+    if not user or not user.github_access_token:
+        return CustomDomainResult(success=False, error="GitHub account not connected.")
+
+    product = await Product.find_one(Product.product_id == product_id)
+    if not product or not product.github_repo:
+        return CustomDomainResult(success=False, error="No GitHub repository found. Deploy first.")
+
+    token = decrypt_token(user.github_access_token)
+    org, repo_name = product.github_repo.split("/", 1)
+
+    try:
+        await set_custom_domain(token, org, repo_name, domain)
+        await product.update(Set({Product.custom_domain: domain}))
+        return CustomDomainResult(success=True)
+    except Exception as exc:
+        logger.error("Custom domain error for user %s product %s: %s", username, product_id, exc)
+        return CustomDomainResult(success=False, error=str(exc))
 
 
 async def get_github_connection_status(username: str) -> GitHubStatusResult:

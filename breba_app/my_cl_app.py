@@ -135,6 +135,8 @@ async def update_deployments_list(product: Product):
     await cl.send_window_message({"method": "update_deployments_list", "body": deployments_list})
     await cl.send_window_message({"method": "github_product_status", "body": {
         "github_repo": product.github_repo,
+        "custom_domain": product.custom_domain,
+        "product_id": product.product_id,
     }})
 
 

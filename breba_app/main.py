@@ -17,7 +17,7 @@ from starlette.staticfiles import StaticFiles
 import breba_app.github_oauth as github_oauth
 from breba_app.auth import change_password
 from breba_app.config import init_db, load_env
-from breba_app.github_controller import get_github_connection_status, handle_github_callback, list_github_orgs
+from breba_app.github_controller import get_github_connection_status, handle_github_callback, list_github_orgs, set_github_custom_domain
 from breba_app.paths import app_path, templates
 
 logging.basicConfig(level=logging.INFO, )
@@ -211,6 +211,20 @@ async def github_orgs(
 ):
     orgs = await list_github_orgs(current_user.identifier)
     return {"orgs": orgs}
+
+
+@app.post("/github/custom-domain")
+async def github_set_custom_domain(
+        request: Request,
+        current_user: Annotated[cl.User, Depends(get_current_user)],
+):
+    body = await request.json()
+    product_id = body.get("product_id", "")
+    domain = body.get("domain", "").strip()
+    if not domain:
+        return {"success": False, "error": "Domain is required."}
+    result = await set_github_custom_domain(current_user.identifier, product_id, domain)
+    return {"success": result.success, "error": result.error}
 
 
 @app.get("/github/status")
