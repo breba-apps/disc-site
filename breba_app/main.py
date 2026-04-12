@@ -14,11 +14,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from starlette.staticfiles import StaticFiles
 
-import httpx
+import asyncio
+
+import dns.resolver
 import breba_app.github_oauth as github_oauth
 from breba_app.auth import change_password
 from breba_app.config import init_db, load_env
-from breba_app.github_controller import get_github_connection_status, handle_github_callback, list_github_orgs, set_github_custom_domain
+from breba_app.github_controller import enforce_github_https, get_github_connection_status, handle_github_callback, list_github_orgs, set_github_custom_domain
 from breba_app.paths import app_path, templates
 
 logging.basicConfig(level=logging.INFO, )
@@ -231,27 +233,42 @@ async def github_set_custom_domain(
 GITHUB_PAGES_IPS = {"185.199.108.153", "185.199.109.153", "185.199.110.153", "185.199.111.153"}
 
 
+def _resolve_with(nameserver: str, domain: str) -> list[str]:
+    resolver = dns.resolver.Resolver()
+    resolver.nameservers = [nameserver]
+    resolver.lifetime = 5.0
+    try:
+        return [rdata.address for rdata in resolver.resolve(domain, 'A')]
+    except Exception:
+        return []
+
+
 @app.get("/github/dns-check")
 async def github_dns_check(
         domain: str,
         current_user: Annotated[cl.User, Depends(get_current_user)],
+        product_id: str = "",
 ):
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                "https://cloudflare-dns.com/dns-query",
-                params={"name": domain, "type": "A"},
-                headers={"Accept": "application/dns-json"},
-                timeout=5.0,
-            )
-            response.raise_for_status()
-            data = response.json()
-            resolved = [r["data"] for r in data.get("Answer", []) if r.get("type") == 1]
-            verified = any(ip in GITHUB_PAGES_IPS for ip in resolved)
-            return {"resolved": resolved, "verified": verified}
-    except Exception as exc:
-        logger.error("DNS check error for %s: %s", domain, exc)
-        return {"resolved": [], "verified": False}
+    cloudflare_ips, google_ips = await asyncio.gather(
+        asyncio.to_thread(_resolve_with, '1.1.1.1', domain),
+        asyncio.to_thread(_resolve_with, '8.8.8.8', domain),
+    )
+
+    cloudflare_verified = any(ip in GITHUB_PAGES_IPS for ip in cloudflare_ips)
+    google_verified = any(ip in GITHUB_PAGES_IPS for ip in google_ips)
+    verified = cloudflare_verified and google_verified
+
+    https_enforced = False
+    if verified and product_id:
+        result = await enforce_github_https(current_user.identifier, product_id)
+        https_enforced = result.success
+
+    return {
+        "cloudflare": {"resolved": cloudflare_ips, "verified": cloudflare_verified},
+        "google": {"resolved": google_ips, "verified": google_verified},
+        "verified": verified,
+        "https_enforced": https_enforced,
+    }
 
 
 @app.get("/github/status")

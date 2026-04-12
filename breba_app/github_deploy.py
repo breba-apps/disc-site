@@ -143,6 +143,18 @@ async def set_custom_domain(token: str, owner: str, repo_name: str, domain: str)
             response.raise_for_status()
 
 
+async def enforce_https(token: str, owner: str, repo_name: str) -> None:
+    """Enable HTTPS enforcement on a GitHub Pages site. Requires the SSL cert to already exist."""
+    async with httpx.AsyncClient() as client:
+        response = await client.put(
+            f"{GITHUB_API_BASE}/repos/{owner}/{repo_name}/pages",
+            headers=_auth_headers(token),
+            json={"https_enforced": True},
+        )
+        if response.status_code not in (200, 204):
+            response.raise_for_status()
+
+
 async def delete_repo(token: str, owner: str, repo_name: str) -> None:
     """Delete a repo. Used for test teardown."""
     async with httpx.AsyncClient() as client:

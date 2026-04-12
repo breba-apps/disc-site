@@ -67,7 +67,14 @@
             <code class="d-block mb-1">A  @  185.199.110.153</code>
             <code class="d-block mb-2">A  @  185.199.111.153</code>
             <p class="mb-2 text-warning-emphasis">⚠ If using Cloudflare, set DNS records to <strong>DNS only</strong> (gray cloud, not proxied) or GitHub cannot provision your SSL certificate.</p>
-            <p id="dns-check-status" class="mb-0 form-text"></p>
+            <div class="d-flex align-items-center gap-2 mt-1">
+                <button id="dns-check-btn" class="btn btn-outline-secondary btn-sm">Check DNS</button>
+                <span id="dns-check-status" class="form-text mb-0"></span>
+            </div>
+            <div id="dns-check-details" class="d-none mt-1 small">
+                <div>Cloudflare (1.1.1.1): <span id="dns-cloudflare-status"></span></div>
+                <div>Google (8.8.8.8): <span id="dns-google-status"></span></div>
+            </div>
         </div>
     </div>
 
@@ -193,12 +200,15 @@
     const customDomainInstructions = document.getElementById("custom-domain-instructions");
     const customDomainDns = document.getElementById("custom-domain-dns");
     const customDomainStatus = document.getElementById("custom-domain-status");
+    const dnsCheckBtn = document.getElementById("dns-check-btn");
     const dnsCheckStatus = document.getElementById("dns-check-status");
+    const dnsCheckDetails = document.getElementById("dns-check-details");
+    const dnsCloudflareStatus = document.getElementById("dns-cloudflare-status");
+    const dnsGoogleStatus = document.getElementById("dns-google-status");
 
     let githubConnectedUsername = null;
     let currentGithubRepo = null;
     let currentProductId = null;
-    let dnsPoller = null;
 
     async function checkGitHubStatus() {
         try {
@@ -291,34 +301,28 @@
         triggerGithubDeploy(null);
     });
 
-    // DNS polling
     async function runDnsCheck(domain) {
-        dnsCheckStatus.textContent = "Checking DNS...";
+        dnsCheckStatus.textContent = "Checking...";
+        dnsCheckBtn.disabled = true;
+        const url = `/github/dns-check?domain=${encodeURIComponent(domain)}${currentProductId ? `&product_id=${currentProductId}` : ''}`;
         try {
-            const response = await fetch(`/github/dns-check?domain=${encodeURIComponent(domain)}`);
+            const response = await fetch(url);
             const data = await response.json();
+
+            dnsCheckDetails.classList.remove("d-none");
+            dnsCloudflareStatus.textContent = data.cloudflare.verified ? `✓ (${data.cloudflare.resolved.join(", ")})` : `✗ not resolved`;
+            dnsGoogleStatus.textContent = data.google.verified ? `✓ (${data.google.resolved.join(", ")})` : `✗ not resolved`;
+
             if (data.verified) {
+                dnsCheckStatus.textContent = data.https_enforced ? "DNS verified ✓  •  HTTPS enforced ✓" : "DNS verified ✓";
                 customDomainInstructions.classList.add("d-none");
-                stopDnsPolling();
             } else {
-                const resolved = data.resolved.length ? `Resolved: ${data.resolved.join(", ")}` : "Not resolved yet.";
-                dnsCheckStatus.textContent = `DNS not propagated yet. ${resolved}`;
+                dnsCheckStatus.textContent = "DNS not propagated yet.";
             }
         } catch (e) {
-            dnsCheckStatus.textContent = "DNS check failed.";
-        }
-    }
-
-    function startDnsPolling(domain) {
-        stopDnsPolling();
-        runDnsCheck(domain);
-        dnsPoller = setInterval(() => runDnsCheck(domain), 30000);
-    }
-
-    function stopDnsPolling() {
-        if (dnsPoller) {
-            clearInterval(dnsPoller);
-            dnsPoller = null;
+            dnsCheckStatus.textContent = "Check failed.";
+        } finally {
+            dnsCheckBtn.disabled = false;
         }
     }
 
@@ -327,8 +331,13 @@
         const org = githubRepo.split("/")[0];
         customDomainDns.textContent = `CNAME  ${domain}  →  ${org}.github.io`;
         customDomainInstructions.classList.remove("d-none");
-        startDnsPolling(domain);
+        runDnsCheck(domain);
     }
+
+    dnsCheckBtn.addEventListener("click", () => {
+        const domain = customDomainInput.value.trim();
+        if (domain) runDnsCheck(domain);
+    });
 
     customDomainInput.addEventListener("keydown", (event) => {
         if (event.key === "Enter") customDomainBtn.click();

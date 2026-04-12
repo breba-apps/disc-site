@@ -6,6 +6,7 @@ from beanie.odm.operators.update.general import Set
 from breba_app.github_deploy import (
     create_repo,
     enable_pages,
+    enforce_https,
     get_pages_url,
     push_files,
     set_custom_domain,
@@ -154,6 +155,27 @@ async def set_github_custom_domain(username: str, product_id: str, domain: str) 
         return CustomDomainResult(success=True)
     except Exception as exc:
         logger.error("Custom domain error for user %s product %s: %s", username, product_id, exc)
+        return CustomDomainResult(success=False, error=str(exc))
+
+
+async def enforce_github_https(username: str, product_id: str) -> CustomDomainResult:
+    """Best-effort HTTPS enforcement — fails silently if cert is not yet provisioned."""
+    user = await User.find_one(User.username == username)
+    if not user or not user.github_access_token:
+        return CustomDomainResult(success=False, error="GitHub account not connected.")
+
+    product = await Product.find_one(Product.product_id == product_id)
+    if not product or not product.github_repo:
+        return CustomDomainResult(success=False, error="No GitHub repository found.")
+
+    token = decrypt_token(user.github_access_token)
+    org, repo_name = product.github_repo.split("/", 1)
+
+    try:
+        await enforce_https(token, org, repo_name)
+        return CustomDomainResult(success=True)
+    except Exception as exc:
+        logger.warning("Enforce HTTPS not yet available for %s/%s: %s", org, repo_name, exc)
         return CustomDomainResult(success=False, error=str(exc))
 
 
