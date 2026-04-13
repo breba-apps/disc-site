@@ -48,6 +48,36 @@
         <p id="no-deployments-text" class="form-text text-muted">No deployments yet.</p>
     </div>
 
+    <!-- Custom Domain (shown only after GitHub repo exists) -->
+    <div id="custom-domain-section" class="d-none">
+        <h6 class="fw-semibold mb-2">Custom Domain</h6>
+        <div class="input-group input-group-sm">
+            <input type="text" id="custom-domain-input" class="form-control" placeholder="e.g. mysite.com">
+            <button id="custom-domain-btn" class="btn btn-outline-secondary">Save</button>
+        </div>
+        <p id="custom-domain-status" class="form-text mt-1"></p>
+
+        <div id="custom-domain-instructions" class="d-none mt-2 p-2 bg-light rounded small">
+            <p class="fw-medium mb-1">Configure your DNS at your registrar:</p>
+            <p class="mb-1">For a <strong>subdomain</strong> (e.g. www.yourdomain.com), add:</p>
+            <code id="custom-domain-dns" class="d-block mb-2"></code>
+            <p class="mb-1">For an <strong>apex domain</strong> (e.g. yourdomain.com), add these A records instead:</p>
+            <code class="d-block mb-1">A  @  185.199.108.153</code>
+            <code class="d-block mb-1">A  @  185.199.109.153</code>
+            <code class="d-block mb-1">A  @  185.199.110.153</code>
+            <code class="d-block mb-2">A  @  185.199.111.153</code>
+            <p class="mb-2 text-warning-emphasis">⚠ If using Cloudflare, set DNS records to <strong>DNS only</strong> (gray cloud, not proxied) or GitHub cannot provision your SSL certificate.</p>
+            <div class="d-flex align-items-center gap-2 mt-1">
+                <button id="dns-check-btn" class="btn btn-outline-secondary btn-sm">Check DNS</button>
+                <span id="dns-check-status" class="form-text mb-0"></span>
+            </div>
+            <div id="dns-check-details" class="d-none mt-1 small">
+                <div>Cloudflare (1.1.1.1): <span id="dns-cloudflare-status"></span></div>
+                <div>Google (8.8.8.8): <span id="dns-google-status"></span></div>
+            </div>
+        </div>
+    </div>
+
     <!-- Templates -->
     <template id="deploy-card-breba">
         <div class="card border rounded-3 shadow-sm px-3 py-2" data-id="">
@@ -164,8 +194,21 @@
     const githubConnectBtn = document.getElementById("github-connect-btn");
     const githubDeployStatus = document.getElementById("github-deploy-status");
 
+    const customDomainSection = document.getElementById("custom-domain-section");
+    const customDomainInput = document.getElementById("custom-domain-input");
+    const customDomainBtn = document.getElementById("custom-domain-btn");
+    const customDomainInstructions = document.getElementById("custom-domain-instructions");
+    const customDomainDns = document.getElementById("custom-domain-dns");
+    const customDomainStatus = document.getElementById("custom-domain-status");
+    const dnsCheckBtn = document.getElementById("dns-check-btn");
+    const dnsCheckStatus = document.getElementById("dns-check-status");
+    const dnsCheckDetails = document.getElementById("dns-check-details");
+    const dnsCloudflareStatus = document.getElementById("dns-cloudflare-status");
+    const dnsGoogleStatus = document.getElementById("dns-google-status");
+
     let githubConnectedUsername = null;
     let currentGithubRepo = null;
+    let currentProductId = null;
 
     async function checkGitHubStatus() {
         try {
@@ -196,10 +239,12 @@
             githubConnectedNew.classList.add("d-none");
             githubConnectedExisting.classList.remove("d-none");
             githubConnectedTextExisting.textContent = `Connected as @${githubConnectedUsername}`;
+            customDomainSection.classList.remove("d-none");
         } else {
             githubConnectedExisting.classList.add("d-none");
             githubConnectedNew.classList.remove("d-none");
             githubConnectedTextNew.textContent = `Connected as @${githubConnectedUsername}`;
+            customDomainSection.classList.add("d-none");
             await loadOrgs();
         }
     }
@@ -256,6 +301,76 @@
         triggerGithubDeploy(null);
     });
 
+    async function runDnsCheck(domain) {
+        dnsCheckStatus.textContent = "Checking...";
+        dnsCheckBtn.disabled = true;
+        const url = `/github/dns-check?domain=${encodeURIComponent(domain)}${currentProductId ? `&product_id=${currentProductId}` : ''}`;
+        try {
+            const response = await fetch(url);
+            const data = await response.json();
+
+            dnsCheckDetails.classList.remove("d-none");
+            dnsCloudflareStatus.textContent = data.cloudflare.verified ? `✓ (${data.cloudflare.resolved.join(", ")})` : `✗ not resolved`;
+            dnsGoogleStatus.textContent = data.google.verified ? `✓ (${data.google.resolved.join(", ")})` : `✗ not resolved`;
+
+            if (data.verified) {
+                dnsCheckStatus.textContent = data.https_enforced ? "DNS verified ✓  •  HTTPS enforced ✓" : "DNS verified ✓";
+                customDomainInstructions.classList.add("d-none");
+            } else {
+                dnsCheckStatus.textContent = "DNS not propagated yet.";
+            }
+        } catch (e) {
+            dnsCheckStatus.textContent = "Check failed.";
+        } finally {
+            dnsCheckBtn.disabled = false;
+        }
+    }
+
+    function showDnsInstructions(domain, githubRepo) {
+        if (!domain || !githubRepo) return;
+        const org = githubRepo.split("/")[0];
+        customDomainDns.textContent = `CNAME  ${domain}  →  ${org}.github.io`;
+        customDomainInstructions.classList.remove("d-none");
+        runDnsCheck(domain);
+    }
+
+    dnsCheckBtn.addEventListener("click", () => {
+        const domain = customDomainInput.value.trim();
+        if (domain) runDnsCheck(domain);
+    });
+
+    customDomainInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") customDomainBtn.click();
+    });
+
+    customDomainBtn.addEventListener("click", async () => {
+        const domain = customDomainInput.value.trim();
+        if (!domain) {
+            customDomainStatus.textContent = "Please enter a domain.";
+            return;
+        }
+        customDomainStatus.textContent = "Saving...";
+        customDomainBtn.disabled = true;
+        try {
+            const response = await fetch("/github/custom-domain", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({product_id: currentProductId, domain}),
+            });
+            const data = await response.json();
+            if (data.success) {
+                customDomainStatus.textContent = "";
+                showDnsInstructions(domain, currentGithubRepo);
+            } else {
+                customDomainStatus.textContent = `Error: ${data.error}`;
+            }
+        } catch (e) {
+            customDomainStatus.textContent = "Request failed.";
+        } finally {
+            customDomainBtn.disabled = false;
+        }
+    });
+
     // Incoming messages from Chainlit
     window.addEventListener('message', (event) => {
         const {method, body} = event.data;
@@ -268,6 +383,11 @@
 
         } else if (method === "github_product_status") {
             currentGithubRepo = body.github_repo || null;
+            currentProductId = body.product_id || null;
+            if (body.custom_domain) {
+                customDomainInput.value = body.custom_domain;
+                showDnsInstructions(body.custom_domain, currentGithubRepo);
+            }
             if (githubConnectedUsername) applyGitHubUI();
 
         } else if (method === "github_deploy_status") {

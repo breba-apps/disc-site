@@ -130,6 +130,31 @@ def get_pages_url(owner: str, repo_name: str) -> str:
     return f"https://{owner}.github.io/{repo_name}"
 
 
+async def set_custom_domain(token: str, owner: str, repo_name: str, domain: str) -> None:
+    """Push a CNAME file and register the custom domain via the Pages API."""
+    await push_file(token, owner, repo_name, "CNAME", domain)
+    async with httpx.AsyncClient() as client:
+        response = await client.put(
+            f"{GITHUB_API_BASE}/repos/{owner}/{repo_name}/pages",
+            headers=_auth_headers(token),
+            json={"cname": domain},
+        )
+        if response.status_code not in (200, 204):
+            response.raise_for_status()
+
+
+async def enforce_https(token: str, owner: str, repo_name: str) -> None:
+    """Enable HTTPS enforcement on a GitHub Pages site. Requires the SSL cert to already exist."""
+    async with httpx.AsyncClient() as client:
+        response = await client.put(
+            f"{GITHUB_API_BASE}/repos/{owner}/{repo_name}/pages",
+            headers=_auth_headers(token),
+            json={"https_enforced": True},
+        )
+        if response.status_code not in (200, 204):
+            response.raise_for_status()
+
+
 async def delete_repo(token: str, owner: str, repo_name: str) -> None:
     """Delete a repo. Used for test teardown."""
     async with httpx.AsyncClient() as client:

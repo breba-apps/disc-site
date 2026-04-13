@@ -14,10 +14,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from starlette.staticfiles import StaticFiles
 
+import asyncio
+
+import dns.resolver
 import breba_app.github_oauth as github_oauth
 from breba_app.auth import change_password
 from breba_app.config import init_db, load_env
-from breba_app.github_controller import get_github_connection_status, handle_github_callback, list_github_orgs
+from breba_app.github_controller import enforce_github_https, get_github_connection_status, handle_github_callback, list_github_orgs, set_github_custom_domain
 from breba_app.paths import app_path, templates
 
 logging.basicConfig(level=logging.INFO, )
@@ -211,6 +214,61 @@ async def github_orgs(
 ):
     orgs = await list_github_orgs(current_user.identifier)
     return {"orgs": orgs}
+
+
+@app.post("/github/custom-domain")
+async def github_set_custom_domain(
+        request: Request,
+        current_user: Annotated[cl.User, Depends(get_current_user)],
+):
+    body = await request.json()
+    product_id = body.get("product_id", "")
+    domain = body.get("domain", "").strip()
+    if not domain:
+        return {"success": False, "error": "Domain is required."}
+    result = await set_github_custom_domain(current_user.identifier, product_id, domain)
+    return {"success": result.success, "error": result.error}
+
+
+GITHUB_PAGES_IPS = {"185.199.108.153", "185.199.109.153", "185.199.110.153", "185.199.111.153"}
+
+
+def _resolve_with(nameserver: str, domain: str) -> list[str]:
+    resolver = dns.resolver.Resolver()
+    resolver.nameservers = [nameserver]
+    resolver.lifetime = 5.0
+    try:
+        return [rdata.address for rdata in resolver.resolve(domain, 'A')]
+    except Exception:
+        return []
+
+
+@app.get("/github/dns-check")
+async def github_dns_check(
+        domain: str,
+        current_user: Annotated[cl.User, Depends(get_current_user)],
+        product_id: str = "",
+):
+    cloudflare_ips, google_ips = await asyncio.gather(
+        asyncio.to_thread(_resolve_with, '1.1.1.1', domain),
+        asyncio.to_thread(_resolve_with, '8.8.8.8', domain),
+    )
+
+    cloudflare_verified = any(ip in GITHUB_PAGES_IPS for ip in cloudflare_ips)
+    google_verified = any(ip in GITHUB_PAGES_IPS for ip in google_ips)
+    verified = cloudflare_verified and google_verified
+
+    https_enforced = False
+    if verified and product_id:
+        result = await enforce_github_https(current_user.identifier, product_id)
+        https_enforced = result.success
+
+    return {
+        "cloudflare": {"resolved": cloudflare_ips, "verified": cloudflare_verified},
+        "google": {"resolved": google_ips, "verified": google_verified},
+        "verified": verified,
+        "https_enforced": https_enforced,
+    }
 
 
 @app.get("/github/status")

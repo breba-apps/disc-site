@@ -81,6 +81,8 @@ The env loader searches up the directory tree for a `.secrets/breba/` directory 
 
 **No inline styles:** Never use `style="..."` attributes in HTML. Always add a class and put the rule in `styles.css`.
 
+**Enter key submits forms:** Every text input that triggers an action must submit on Enter. Wire a `keydown` listener that calls the corresponding button's `click()` on `event.key === "Enter"`.
+
 ## Working style
 
 **Fixing failing tests:** If a test is still failing after 3 attempts, stop and explain what is happening rather than continuing to try fixes. Describe what the test is doing, what the actual vs expected output is, and what the likely root cause is. Let the user decide how to proceed.
