@@ -31,11 +31,14 @@ _REQUIRED_ENV_KEYS = _read_required_env_keys()
 
 
 def load_env(file: str | None = None):
+    file = file or ".env"
     if all(os.getenv(key) for key in _REQUIRED_ENV_KEYS):
         logger.info("load_env: all required env vars already set in environment, skipping .env lookup")
         return
+    else:
+        logger.info(f"load_env: some required env vars not set in environment, loading {file}")
+        logger.info(f"missing keys: {[set(_REQUIRED_ENV_KEYS) - set(os.environ.keys())]}")
 
-    file = file or ".env"
     working_dir = Path(".").resolve()
 
     # try going up the directory tree until we find .secrets directory
