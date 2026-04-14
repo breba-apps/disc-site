@@ -216,7 +216,7 @@
             const data = await response.json();
             if (data.connected) {
                 githubConnectedUsername = data.github_username;
-                applyGitHubUI();
+                await applyGitHubUI();
             } else {
                 showGitHubNotConnected();
             }
