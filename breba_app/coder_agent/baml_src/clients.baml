@@ -1,5 +1,19 @@
 // Learn more about clients at https://docs.boundaryml.com/docs/snippets/clients/overview
 
+client<llm> Gpt54Low {
+  provider openai-responses
+  options {
+    model "gpt-5.4"
+    api_key env.OPENAI_API_KEY
+    reasoning {
+      effort "low"
+    }
+    text {
+      verbosity: "low"
+    }
+  }
+}
+
 client<llm> Gpt51CodexLow {
   provider openai-responses
   options {

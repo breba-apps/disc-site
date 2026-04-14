@@ -123,7 +123,7 @@ Your output will be a list of filepaths.
 }
 
 function GenerateSearchReplaceBlocks(messages: LLMMessage[]) -> string {
-  client Gpt5Low
+  client Gpt54Low
   prompt #"
 You are an agent working within Breba App. You are helping the user build and maintain their website.
 You will be interacting with a user who is looking at the web page and not the code.
