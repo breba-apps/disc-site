@@ -1,6 +1,7 @@
 import logging
 from dataclasses import dataclass
 
+import httpx
 from beanie.odm.operators.update.general import Set
 
 from breba_app.github_deploy import (
@@ -19,6 +20,13 @@ from breba_app.models.user import User
 from breba_app.storage import read_all_files_in_memory
 
 logger = logging.getLogger(__name__)
+
+
+async def _clear_github_token(user: User) -> None:
+    """Remove the stored GitHub token and username from the user record."""
+    user.github_access_token = None
+    user.github_username = None
+    await user.save()
 
 
 @dataclass
@@ -74,12 +82,27 @@ class GitHubDeployResult:
     error: str | None = None
 
 
-async def list_github_orgs(username: str) -> list[str]:
-    """Return the list of GitHub org names for the connected user."""
+async def list_github_orgs(username: str) -> list[str] | None:
+    """Return the list of GitHub org names for the connected user.
+
+    Returns None if the stored token is no longer valid — caller should treat
+    this as "disconnected" and show the GitHub connect UI.
+    """
     user = await User.find_one(User.username == username)
     if not user or not user.github_access_token:
         return []
-    return await get_github_orgs(decrypt_token(user.github_access_token))
+    try:
+        return await get_github_orgs(decrypt_token(user.github_access_token))
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 401:
+            logger.error(
+                "GitHub token unauthorized for user '%s' — token has been revoked or expired. "
+                "Clearing stored token. User must reconnect GitHub.",
+                username,
+            )
+            await _clear_github_token(user)
+            return None
+        raise
 
 
 async def deploy_to_github(username: str, product_id: str, org: str | None = None) -> GitHubDeployResult:
