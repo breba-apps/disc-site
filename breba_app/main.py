@@ -213,6 +213,8 @@ async def github_orgs(
         current_user: Annotated[cl.User, Depends(get_current_user)],
 ):
     orgs = await list_github_orgs(current_user.identifier)
+    if orgs is None:
+        return {"orgs": [], "token_revoked": True}
     return {"orgs": orgs}
 
 

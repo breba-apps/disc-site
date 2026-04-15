@@ -253,6 +253,11 @@
         try {
             const response = await fetch("/github/orgs");
             const data = await response.json();
+            if (data.token_revoked) {
+                console.error("GitHub token is no longer valid (revoked or expired). Please reconnect your GitHub account.");
+                showGitHubNotConnected();
+                return;
+            }
             const orgs = data.orgs || [];
             githubOrgSelect.innerHTML = '<option value="">Select an organization...</option>';
             orgs.forEach(org => {
