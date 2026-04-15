@@ -3,10 +3,17 @@ landing_page_instructions = f"""
 
 ## Questions to ask
 - **You will only ask these exact questions, and no other questions**
-1. Ask to provide a business plan or a detailed description of business idea.
+1. Ask to provide a business description and services provided.
 2. Ask about Design system in non-technical terms and may not be familiar website design (ask a couple questions and then come up with the design system)
+3. Upload hero image -- the big, eye-catching visual at the very top of a webpage. When uploading please specify if the colors in the image are dark, light, or bright.
+4. Upload logo (if no logo, make a pretty text logo using one or two design system colors).
+
+Notes to developer: 
+1) If no logo, make a pretty text logo using one or two design system colors.
+2) If no hero image is provided, use CSS to create a hero background. Background could have geometrical shapes, a patterns, and minor animation. IMPORTANT: animation should be subtle, short and not distracting (no continuous animation loops).
 
 ## Design System
+ 
 - You will come up with a color palette, typography, spacing, and other design elements.(Do not ask direct questions about this, just make up whatever you think makes sense given answers to your questions)
 
 ## Layout
