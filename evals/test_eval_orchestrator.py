@@ -26,7 +26,7 @@ def setup_orchestrator_case(case: str) -> tuple[Path, BrebaMessage, str, str, In
     case_dir = Path(__file__).parent / "cases" / "orchestrator_evals" / case
     messages, store = load_case(case_dir)
     user_name = "eval_user"
-    save_state(user_name, case, OrchestratorState([], "", store))
+    save_state(user_name, case, OrchestratorState([], store))
     last_user_msg = next(m for m in reversed(messages) if m.role == "user")
     return case_dir, last_user_msg, user_name, case, store
 

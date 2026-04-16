@@ -20,7 +20,7 @@ template_string  ChatSystemInfo() #"<system_info>
     </limitation>
 "#
 
-function UserResponseOrCoder(messages: LLMMessage[], spec: string, files: string[], agents_md: string) -> ResponseToUser | Coder{
+function UserResponseOrCoder(messages: LLMMessage[], spec: string, files: string[]) -> ResponseToUser | Coder{
   client Gpt5Low
   prompt #"You are an AI agent within Breba App.
 You will talk with user and when appropriate route them to the coder agent (coder).
@@ -45,15 +45,6 @@ IMPORTANT: User doesn't know anything about code. For implementation details, de
 
     {{ _.role("system") }}
     {{ ctx.output_format }}
-
-  {% if agents_md %}
-    {{ _.role("user") }}
-    Here are the project notes capturing user preferences, decisions, and constraints:
-    {{ agents_md }}
-
-    {{ _.role("assistant") }}
-    I understand the project context and will keep these preferences in mind.
-  {% endif %}
 
   {% if spec %}
     {{ _.role("user") }}
@@ -154,9 +145,7 @@ test BuildHelloWorldSite {
       }
     ],
     spec "This is a brand new project without a spec",
-    files [],
-    agents_md ""
-
+    files []
   }
 
 }
@@ -172,8 +161,7 @@ test BuildHelloWorldSiteNoQuestions {
       }
     ],
     spec #"This is a brand new project without a spec"#,
-    files [],
-    agents_md ""
+    files []
   }
 }
 
@@ -195,8 +183,7 @@ test BuildHelloWorldSiteMultiTurn {
       },
     ],
     spec #"This is a brand new project without a spec"#,
-    files [],
-    agents_md ""
+    files []
   }
 }
 
@@ -227,8 +214,7 @@ test BuildLandingPage {
       },
     ],
     spec #""#,
-    files [],
-    agents_md ""
+    files []
   }
 }
 
@@ -250,7 +236,6 @@ test BuildLandingPageConfusion{
       },
     ],
     files ["index.html", "styles.css", "script.js", "sitemap.xml", "AGENTS.md"]
-    agents_md ""
     spec #"# GravelGuard — Product Specification
 
 ## 1. Product Intent
@@ -470,7 +455,6 @@ test BuildLandingPageXMLSpec{
       },
     ],
     files ["index.html", "styles.css", "script.js", "sitemap.xml", "AGENTS.md"]
-    agents_md ""
     spec #"
   <doc sitename="gravel.breba.site" title="GravelGuard | Fast Gravel Road Repair for Trailheads and Rural Access" url="https://gravel.breba.site" hostname="breba.site" description="GravelGuard provides fast gravel road repair for trailheads, campgrounds, rural driveways, and access roads, fixing potholes, washboards, and drainage issues." tags="gravel road repair, trailhead access, rural driveway maintenance, pothole repair, washboard road, recreation access, road grading, GravelGuard" fingerprint="bc9f4c760db66305">
   <main>

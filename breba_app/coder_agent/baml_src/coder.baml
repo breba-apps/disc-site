@@ -122,7 +122,7 @@ Your output will be a list of filepaths.
 
 }
 
-function GenerateSearchReplaceBlocks(messages: LLMMessage[], agents_md: string) -> string {
+function GenerateSearchReplaceBlocks(messages: LLMMessage[]) -> string {
   client Gpt54Low
   prompt #"
 You are an agent working within Breba App. You are helping the user build and maintain their website.
@@ -148,12 +148,9 @@ ONLY EVER RETURN CODE IN A *SEARCH/REPLACE BLOCK*!
 {{ SystemInfo() }}
 
 {{ StaticSiteBestPractices() }}
-    
+
 {{ SystemReminder() }}
-<agents_md>
-These are general notes about the project.
-{{ agents_md }}
-</agents_md>
+
     {% for message in messages %}
       {{ _.role(message.role) }}
       {{ message.content }}
@@ -176,6 +173,16 @@ test BuildHelloWorldSite {
     messages [
       {
         role "user"
+        content #"[AGENTS.md]
+Here are the project notes capturing user preferences, decisions, and constraints:
+Simple Hello world site, no preferences for styling or structure"#
+      }
+      {
+        role "assistant"
+        content #"I understand the project context and will keep these preferences in mind."#
+      }
+      {
+        role "user"
         content #"List files available in my project."#
       }
       {
@@ -186,8 +193,7 @@ test BuildHelloWorldSite {
         role "user"
         content #"Create a simple hello world site"#
       }
-    ],
-    agents_md "Simple Hello world site, no preferences for styling or structure"
+    ]
   }
 }
 

@@ -73,12 +73,15 @@ function CoderNotes(messages: LLMMessage[], coder_notes: string, index_html: str
     {% endfor %}
 
     {% if coder_notes %}
+      {{ _.role("assistant") }}
+      To update the existing agent instructions, please provide the current instructions.
       {{ _.role("user") }}
       Here is my current website description and preferences. If necessary, update it based on this conversation:
       {{ coder_notes }}
+
     {% else %}
       {{ _.role("system") }}
-      This is a brand new project, so there are no coder notes yet. Based on our conversation, create the initial coder notes for this project.
+      This is a brand new project, so there are no agent instructions yet. Based on our conversation, create the initial agent instructions for this project.
     {% endif %}
 
   "#

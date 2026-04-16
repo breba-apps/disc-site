@@ -84,8 +84,7 @@ async def stream_user_response_or_coder(*, messages: list[LLMMessage], filestore
         spec = filestore.read_text("index.html")
     else:
         spec = ""
-    agents_md = filestore.read_text(AGENTS_MD_FILE) if filestore.file_exists(AGENTS_MD_FILE) else ""
-    return b.stream.UserResponseOrCoder(messages, spec, filestore.list_files(), agents_md)
+    return b.stream.UserResponseOrCoder(messages, spec, filestore.list_files())
 
     logger.info(f"Empty message received: {await stream.get_final_response()}")
     return "Something went wrong, empty message received"
@@ -128,13 +127,16 @@ async def read_files_to_edit(*, original_context: list[LLMMessage], filestore: F
 
     return file_contents or NO_FILES_TO_MODIFY_MSG, seen_files
 
-async def update_executive_summary(*, messages: list[LLMMessage], filestore: FileStore):
+async def update_executive_summary(*, messages: list[LLMMessage], filestore: FileStore) -> str | None:
     current = filestore.read_text(AGENTS_MD_FILE) if filestore.file_exists(AGENTS_MD_FILE) else ""
-    agents_md = await b.CoderNotes(messages, current, filestore.read_text(INDEX_FILE_NAME))
-    if agents_md and isinstance(agents_md, str):
+    index_html = filestore.read_text(INDEX_FILE_NAME) if filestore.file_exists(INDEX_FILE_NAME) else ""
+    agents_md = await b.CoderNotes(messages, current, index_html)
+    if agents_md and isinstance(agents_md, str) and agents_md.strip().lower() != "noop":
         filestore.write_text(AGENTS_MD_FILE, agents_md)
-    else:
-        logging.exception("Invalid agents_md: " + str(agents_md))
+        return agents_md
+    elif not agents_md or not isinstance(agents_md, str):
+        logger.error("Invalid agents_md: %s", agents_md)
+    return None
 
 async def run_coder_agent(*, messages: list[LLMMessage], filestore: FileStore) -> LLMMessage:
     """
@@ -160,8 +162,7 @@ async def run_coder_agent(*, messages: list[LLMMessage], filestore: FileStore) -
             # This is used for removing the file contents message on retry
             file_contents_index = len(safe_context) - 1
 
-            agents_md = filestore.read_text(AGENTS_MD_FILE) if filestore.file_exists(AGENTS_MD_FILE) else ""
-            search_replace_text = await b.GenerateSearchReplaceBlocks(safe_context, agents_md)
+            search_replace_text = await b.GenerateSearchReplaceBlocks(safe_context)
 
             safe_context.append(LLMMessage(role="assistant", content=search_replace_text))
             edits = apply_search_replace_many(files, search_replace_text)
