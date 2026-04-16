@@ -1,5 +1,6 @@
 import pytest
 
+from breba_app.filesystem.in_memory_store import from_raw_strings
 from breba_app.search_replace_editing import apply_search_replace_many, ApplyEditsError
 
 
@@ -1158,16 +1159,16 @@ def file_content():
     """
 
 def test_apply_search_replace_many(search_replace_block, file_content):
-    files = {"index.html": file_content}
-    result = apply_search_replace_many(files, search_replace_block)
+    filestore = from_raw_strings({"index.html": file_content})
+    result = apply_search_replace_many(filestore, search_replace_block)
     assert result == ["index.html"]
-    assert not files["index.html"] == file_content
+    assert filestore.read_text("index.html") != file_content
 
 
 def test_apply_search_replace_many_file_mismatch(search_replace_block, file_content):
-    files = {"index2.html": file_content}
+    filestore = from_raw_strings({"index2.html": file_content})
     try:
-        apply_search_replace_many(files, search_replace_block)
+        apply_search_replace_many(filestore, search_replace_block)
     except ApplyEditsError as e:
         assert "File not found: index.html" in str(e)
     else:
@@ -1175,9 +1176,9 @@ def test_apply_search_replace_many_file_mismatch(search_replace_block, file_cont
 
 
 def test_apply_search_replace_many_empty_file(search_replace_block, file_content):
-    files = {"index.html": ""}
+    filestore = from_raw_strings({"index.html": ""})
     try:
-        apply_search_replace_many(files, search_replace_block)
+        apply_search_replace_many(filestore, search_replace_block)
     except ApplyEditsError as e:
         assert "Content is empty" in str(e)
     else:

@@ -8,7 +8,7 @@ from baml_py import BamlStream
 from breba_app.coder_agent.baml_client.async_client import b
 from breba_app.coder_agent.baml_client.types import LLMMessage
 from breba_app.config import INDEX_FILE_NAME
-from breba_app.filesystem import FileStore
+from breba_app.filesystem import FileStore, InMemoryFileStore, FileWrite
 from breba_app.search_replace_editing import apply_search_replace_many, ApplyEditsError
 
 logger = logging.getLogger(__name__)
@@ -17,15 +17,12 @@ NO_FILES_TO_MODIFY_MSG = "No files to modify for this request"
 MAX_RETRIES = 3
 
 
-def _snapshot(fs: FileStore) -> dict[str, str]:
-    return {p: fs.read_text(p) for p in fs.list_files()}
 
-
-def _modified_files(before: dict[str, str], after: dict[str, str]) -> list[str]:
+def _modified_files(before: dict[str, FileWrite], after: dict[str, FileWrite]) -> list[str]:
     out: list[str] = []
-    for path, after_content in after.items():
-        before_content = before.get(path)
-        if before_content is None or before_content != after_content:
+    for path, after_file in after.items():
+        before_file = before.get(path)
+        if before_file is None or before_file.content != after_file.content:
             out.append(path)
     return sorted(out)
 
@@ -149,8 +146,8 @@ async def run_coder_agent(*, messages: list[LLMMessage], filestore: FileStore) -
 
     latest_file_contents, files_working_set = await read_files_to_edit(original_context=messages, filestore=filestore)
 
-    files = _snapshot(filestore)
-    before = dict(files)
+    before = filestore.snapshot()
+    edit_store = InMemoryFileStore(before)
     file_contents_index = None
 
     for attempt in range(MAX_RETRIES):
@@ -165,15 +162,15 @@ async def run_coder_agent(*, messages: list[LLMMessage], filestore: FileStore) -
             search_replace_text = await b.GenerateSearchReplaceBlocks(safe_context)
 
             safe_context.append(LLMMessage(role="assistant", content=search_replace_text))
-            edits = apply_search_replace_many(files, search_replace_text)
+            edits = apply_search_replace_many(edit_store, search_replace_text)
             # break on success
             break
         except ApplyEditsError as e:
-            # Atomic behavior: do not write anything on failure
+            # Atomic behavior: reset scratchpad and do not write anything on failure
             logging.exception(f"Failed to apply code changes ({attempt} of {MAX_RETRIES})")
+            edit_store = InMemoryFileStore(before)
 
             if attempt == MAX_RETRIES - 1:
-                # rollback to the last known good spec in case partially_updated_spec was used at any of the retries
                 logger.error("All attempts to apply code")
                 return LLMMessage(role="assistant",
                                   content=f"ERROR: All edit attempts failed. Try making a more specific request.")
@@ -181,12 +178,12 @@ async def run_coder_agent(*, messages: list[LLMMessage], filestore: FileStore) -
             safe_context.append(LLMMessage(role="user", content=_retry_err_message(e)))
             latest_file_contents = _render_files(files_working_set, filestore)
 
-    modified = _modified_files(before, files)
+    modified = _modified_files(before, edit_store.snapshot())
     if not modified:
         return LLMMessage(role="assistant", content="UPDATED_FILES:\n(none)")
 
     # Write back only changed/new files
     for path in modified:
-        filestore.write_text(path, files[path])
+        filestore.write_text(path, edit_store.read_text(path))
 
     return LLMMessage(role="assistant", content="UPDATED_FILES:\n" + "\n".join(f"- {p}" for p in modified))
