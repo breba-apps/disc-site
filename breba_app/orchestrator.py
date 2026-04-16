@@ -160,8 +160,7 @@ async def edit_product(user_name: str, product_id: str, message: BrebaMessage,
         await event_bus.emit(
             BeforeHandoffToCoder(user_name=user_name, product_id=product_id,
                                  messages=_to_baml_messages(orchestrator_state.messages),
-                                 filestore=file_store),
-            wait=True)
+                                 filestore=file_store))
         coder_response = await run_coder_agent(messages=_to_baml_messages(orchestrator_state.messages),
                                                filestore=file_store)
         orchestrator_state.messages.append(BrebaMessage(role="assistant", content=coder_response.content))
@@ -197,9 +196,7 @@ async def start_product(user_name: str, product_id: str, message: BrebaMessage,
         await event_bus.emit(
             BeforeHandoffToCoder(user_name=user_name, product_id=product_id,
                                  messages=_to_baml_messages(orchestrator_state.messages),
-                                 filestore=file_store),
-            wait=True
-        )
+                                 filestore=file_store))
         update_status("Coder is writing the code...")
         coder_response = await run_coder_agent(messages=_to_baml_messages(orchestrator_state.messages),
                                                filestore=file_store)
