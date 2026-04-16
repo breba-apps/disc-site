@@ -7,6 +7,7 @@ from baml_py import BamlStream
 
 from breba_app.coder_agent.baml_client.async_client import b
 from breba_app.coder_agent.baml_client.types import LLMMessage
+from breba_app.config import INDEX_FILE_NAME
 from breba_app.filesystem import FileStore
 from breba_app.search_replace_editing import apply_search_replace_many, ApplyEditsError
 
@@ -53,7 +54,7 @@ def _retry_err_message(e: Exception | str) -> str:
 
 def _files_to_edit_message(file_contents: str) -> LLMMessage:
     return LLMMessage(role="user",
-                      content=f"The following files are available for editing. Do not edit any other files.\n"
+                      content=f"The following files are available for editing. Do not edit any other files. You may create new files if needed.\n"
                               f"<files_available_for_editing>\n{file_contents}\n</files_available_for_editing>")
 
 
@@ -73,6 +74,9 @@ async def _to_user_stream(first_msg: str, stream: AsyncIterable[str]) -> AsyncIt
         yield msg
 
 
+AGENTS_MD_FILE = "AGENTS.md"
+
+
 async def stream_user_response_or_coder(*, messages: list[LLMMessage], filestore: FileStore) \
         -> BamlStream:
     # TODO: should read spec
@@ -80,7 +84,8 @@ async def stream_user_response_or_coder(*, messages: list[LLMMessage], filestore
         spec = filestore.read_text("index.html")
     else:
         spec = ""
-    return b.stream.UserResponseOrCoder(messages, spec, filestore.list_files())
+    agents_md = filestore.read_text(AGENTS_MD_FILE) if filestore.file_exists(AGENTS_MD_FILE) else ""
+    return b.stream.UserResponseOrCoder(messages, spec, filestore.list_files(), agents_md)
 
     logger.info(f"Empty message received: {await stream.get_final_response()}")
     return "Something went wrong, empty message received"
@@ -123,8 +128,13 @@ async def read_files_to_edit(*, original_context: list[LLMMessage], filestore: F
 
     return file_contents or NO_FILES_TO_MODIFY_MSG, seen_files
 
-async def generate_executive_summary(*, messages: list[LLMMessage], executive_summary: str | None) -> str:
-    return await b.CoderNotes(messages, executive_summary or "")
+async def update_executive_summary(*, messages: list[LLMMessage], filestore: FileStore):
+    current = filestore.read_text(AGENTS_MD_FILE) if filestore.file_exists(AGENTS_MD_FILE) else ""
+    agents_md = await b.CoderNotes(messages, current, filestore.read_text(INDEX_FILE_NAME))
+    if agents_md and isinstance(agents_md, str):
+        filestore.write_text(AGENTS_MD_FILE, agents_md)
+    else:
+        logging.exception("Invalid agents_md: " + str(agents_md))
 
 async def run_coder_agent(*, messages: list[LLMMessage], filestore: FileStore) -> LLMMessage:
     """
@@ -150,7 +160,8 @@ async def run_coder_agent(*, messages: list[LLMMessage], filestore: FileStore) -
             # This is used for removing the file contents message on retry
             file_contents_index = len(safe_context) - 1
 
-            search_replace_text = await b.GenerateSearchReplaceBlocks(safe_context)
+            agents_md = filestore.read_text(AGENTS_MD_FILE) if filestore.file_exists(AGENTS_MD_FILE) else ""
+            search_replace_text = await b.GenerateSearchReplaceBlocks(safe_context, agents_md)
 
             safe_context.append(LLMMessage(role="assistant", content=search_replace_text))
             edits = apply_search_replace_many(files, search_replace_text)

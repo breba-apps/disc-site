@@ -9,17 +9,16 @@ from typing import AsyncIterator
 from baml_py import BamlStream
 
 from breba_app.chainlit_bridge import BrebaMessage
-from breba_app.coder_agent.agent import stream_user_response_or_coder, run_coder_agent, generate_executive_summary
+from breba_app.coder_agent.agent import stream_user_response_or_coder, run_coder_agent, \
+    update_executive_summary
 from breba_app.coder_agent.baml_client.async_client import b
 from breba_app.coder_agent.baml_client.stream_types import Coder as CoderStream, ResponseToUser as ResponseToUserStream
 from breba_app.coder_agent.baml_client.types import LLMMessage, Coder, ResponseToUser
 from breba_app.config import INDEX_FILE_NAME
-from breba_app.controllers.product_controller import set_product_executive_summary
 from breba_app.events import event_bus
 from breba_app.events.before_handoff_to_coder import BeforeHandoffToCoder
 from breba_app.events.bus import Consumer, HandleContext
 from breba_app.filesystem import InMemoryFileStore
-from breba_app.models.product import Product
 from breba_app.status_service import agent_task, update_status
 from breba_app.storage import read_all_files_in_memory
 from breba_app.template_agent.agent import TemplateAgent
@@ -32,7 +31,6 @@ logger = logging.getLogger(__name__)
 @dataclass
 class OrchestratorState:
     messages: list[BrebaMessage]
-    executive_summary: str
     filestore: InMemoryFileStore
 
 
@@ -40,7 +38,6 @@ class OrchestratorState:
 _state_store: dict[tuple[str, str], OrchestratorState] = defaultdict(
     lambda: OrchestratorState(
         messages=[],
-        executive_summary="",
         filestore=InMemoryFileStore()
     )
 )
@@ -52,20 +49,15 @@ class ExecutiveSummaryGenerationConsumer(Consumer):
         super().__init__()
 
     async def handle(self, ctx: HandleContext, event: BeforeHandoffToCoder) -> None:
-        executive_summary = await generate_executive_summary(messages=event.messages,
-                                                             executive_summary=event.executive_summary)
-        if executive_summary and isinstance(executive_summary, str):
-            await set_product_executive_summary(event.user_name, event.product_id, executive_summary)
-        else:
-            logging.exception("Invalid executive summary: " + str(executive_summary))
+        logger.info("Generating executive summary...")
+        await update_executive_summary(messages=event.messages, filestore=event.filestore)
 
 
 async def init_orchestrator(user_name: str, product_id: str) -> OrchestratorState:
-    filestore, product, _ = await asyncio.gather(read_all_files_in_memory(user_name, product_id),
-                                                 Product.find_one(Product.product_id == product_id),
-                                                 event_bus.subscribe(BeforeHandoffToCoder,
-                                                                     ExecutiveSummaryGenerationConsumer()))
-    state = OrchestratorState(messages=[], executive_summary=product.executive_summary, filestore=filestore)
+    filestore, _ = await asyncio.gather(read_all_files_in_memory(user_name, product_id),
+                                        event_bus.subscribe(BeforeHandoffToCoder,
+                                                            ExecutiveSummaryGenerationConsumer()))
+    state = OrchestratorState(messages=[], filestore=filestore)
     save_state(user_name, product_id, state)
     return state
 
@@ -120,7 +112,8 @@ async def edit_product(user_name: str, product_id: str, message: BrebaMessage,
         await event_bus.emit(
             BeforeHandoffToCoder(user_name=user_name, product_id=product_id,
                                  messages=_to_baml_messages(orchestrator_state.messages),
-                                 executive_summary=orchestrator_state.executive_summary))
+                                 filestore=file_store),
+            wait=True)
         coder_response = await run_coder_agent(messages=_to_baml_messages(orchestrator_state.messages),
                                                filestore=file_store)
         orchestrator_state.messages.append(BrebaMessage(role="assistant", content=coder_response.content))
@@ -149,12 +142,17 @@ async def start_product(user_name: str, product_id: str, message: BrebaMessage,
         orchestrator_state.messages.append(BrebaMessage(role="assistant", content=new_spec))
         orchestrator_state.messages.append(
             BrebaMessage(role="user", content="Let's use this specification to build the website"))
-        update_status("Coder is writing the code...")
+        # TODO: Need to emit without waiting, but that requires proper synchronization of filestore with persistent storage
+        #  Otherwise the AGENTS.md will not be saved if coder finishes first.
+        # Emit after the product is created so AGENTS.md captures the full initial build context.
+        # Reuses the same BeforeHandoffToCoder consumer as edit_product.
         await event_bus.emit(
             BeforeHandoffToCoder(user_name=user_name, product_id=product_id,
                                  messages=_to_baml_messages(orchestrator_state.messages),
-                                 executive_summary=orchestrator_state.executive_summary)
+                                 filestore=file_store),
+            wait=True
         )
+        update_status("Coder is writing the code...")
         coder_response = await run_coder_agent(messages=_to_baml_messages(orchestrator_state.messages),
                                                filestore=file_store)
         orchestrator_state.messages.append(BrebaMessage(role="assistant", content=coder_response.content))

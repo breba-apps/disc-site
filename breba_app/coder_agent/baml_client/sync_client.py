@@ -94,18 +94,18 @@ class BamlSyncClient:
     def parse_stream(self):
       return self.__llm_stream_parser
 
-    def CoderNotes(self, messages: typing.List["types.LLMMessage"],coder_notes: str,
+    def CoderNotes(self, messages: typing.List["types.LLMMessage"],coder_notes: str,index_html: str,
         baml_options: BamlCallOptions = {},
     ) -> str:
         # Check if on_tick is provided
         if 'on_tick' in baml_options:
-            __stream__ = self.stream.CoderNotes(messages=messages,coder_notes=coder_notes,
+            __stream__ = self.stream.CoderNotes(messages=messages,coder_notes=coder_notes,index_html=index_html,
                 baml_options=baml_options)
             return __stream__.get_final_response()
         else:
             # Original non-streaming code
             __result__ = self.__options.merge_options(baml_options).call_function_sync(function_name="CoderNotes", args={
-                "messages": messages,"coder_notes": coder_notes,
+                "messages": messages,"coder_notes": coder_notes,"index_html": index_html,
             })
             return typing.cast(str, __result__.cast_to(types, types, stream_types, False, __runtime__))
     def DescribeMedia(self, messages: typing.List["types.LLMMessage"],
@@ -136,18 +136,18 @@ class BamlSyncClient:
                 "messages": messages,"files": files,
             })
             return typing.cast(types.FileList, __result__.cast_to(types, types, stream_types, False, __runtime__))
-    def GenerateSearchReplaceBlocks(self, messages: typing.List["types.LLMMessage"],
+    def GenerateSearchReplaceBlocks(self, messages: typing.List["types.LLMMessage"],agents_md: str,
         baml_options: BamlCallOptions = {},
     ) -> str:
         # Check if on_tick is provided
         if 'on_tick' in baml_options:
-            __stream__ = self.stream.GenerateSearchReplaceBlocks(messages=messages,
+            __stream__ = self.stream.GenerateSearchReplaceBlocks(messages=messages,agents_md=agents_md,
                 baml_options=baml_options)
             return __stream__.get_final_response()
         else:
             # Original non-streaming code
             __result__ = self.__options.merge_options(baml_options).call_function_sync(function_name="GenerateSearchReplaceBlocks", args={
-                "messages": messages,
+                "messages": messages,"agents_md": agents_md,
             })
             return typing.cast(str, __result__.cast_to(types, types, stream_types, False, __runtime__))
     def PickActionForUpload(self, messages: typing.List["types.LLMMessage"],
@@ -178,18 +178,18 @@ class BamlSyncClient:
                 "messages": messages,
             })
             return typing.cast(types.UploadToAssets, __result__.cast_to(types, types, stream_types, False, __runtime__))
-    def UserResponseOrCoder(self, messages: typing.List["types.LLMMessage"],spec: str,files: typing.List[str],
+    def UserResponseOrCoder(self, messages: typing.List["types.LLMMessage"],spec: str,files: typing.List[str],agents_md: str,
         baml_options: BamlCallOptions = {},
     ) -> typing.Union["types.ResponseToUser", "types.Coder"]:
         # Check if on_tick is provided
         if 'on_tick' in baml_options:
-            __stream__ = self.stream.UserResponseOrCoder(messages=messages,spec=spec,files=files,
+            __stream__ = self.stream.UserResponseOrCoder(messages=messages,spec=spec,files=files,agents_md=agents_md,
                 baml_options=baml_options)
             return __stream__.get_final_response()
         else:
             # Original non-streaming code
             __result__ = self.__options.merge_options(baml_options).call_function_sync(function_name="UserResponseOrCoder", args={
-                "messages": messages,"spec": spec,"files": files,
+                "messages": messages,"spec": spec,"files": files,"agents_md": agents_md,
             })
             return typing.cast(typing.Union["types.ResponseToUser", "types.Coder"], __result__.cast_to(types, types, stream_types, False, __runtime__))
     def UserResponseOrCoder2(self, messages: typing.List["types.LLMMessage"],spec: str,files: typing.List[str],
@@ -215,11 +215,11 @@ class BamlStreamClient:
     def __init__(self, options: DoNotUseDirectlyCallManager):
         self.__options = options
 
-    def CoderNotes(self, messages: typing.List["types.LLMMessage"],coder_notes: str,
+    def CoderNotes(self, messages: typing.List["types.LLMMessage"],coder_notes: str,index_html: str,
         baml_options: BamlCallOptions = {},
     ) -> baml_py.BamlSyncStream[str, str]:
         __ctx__, __result__ = self.__options.merge_options(baml_options).create_sync_stream(function_name="CoderNotes", args={
-            "messages": messages,"coder_notes": coder_notes,
+            "messages": messages,"coder_notes": coder_notes,"index_html": index_html,
         })
         return baml_py.BamlSyncStream[str, str](
           __result__,
@@ -251,11 +251,11 @@ class BamlStreamClient:
           lambda x: typing.cast(types.FileList, x.cast_to(types, types, stream_types, False, __runtime__)),
           __ctx__,
         )
-    def GenerateSearchReplaceBlocks(self, messages: typing.List["types.LLMMessage"],
+    def GenerateSearchReplaceBlocks(self, messages: typing.List["types.LLMMessage"],agents_md: str,
         baml_options: BamlCallOptions = {},
     ) -> baml_py.BamlSyncStream[str, str]:
         __ctx__, __result__ = self.__options.merge_options(baml_options).create_sync_stream(function_name="GenerateSearchReplaceBlocks", args={
-            "messages": messages,
+            "messages": messages,"agents_md": agents_md,
         })
         return baml_py.BamlSyncStream[str, str](
           __result__,
@@ -287,11 +287,11 @@ class BamlStreamClient:
           lambda x: typing.cast(types.UploadToAssets, x.cast_to(types, types, stream_types, False, __runtime__)),
           __ctx__,
         )
-    def UserResponseOrCoder(self, messages: typing.List["types.LLMMessage"],spec: str,files: typing.List[str],
+    def UserResponseOrCoder(self, messages: typing.List["types.LLMMessage"],spec: str,files: typing.List[str],agents_md: str,
         baml_options: BamlCallOptions = {},
     ) -> baml_py.BamlSyncStream[typing.Union["stream_types.ResponseToUser", "stream_types.Coder"], typing.Union["types.ResponseToUser", "types.Coder"]]:
         __ctx__, __result__ = self.__options.merge_options(baml_options).create_sync_stream(function_name="UserResponseOrCoder", args={
-            "messages": messages,"spec": spec,"files": files,
+            "messages": messages,"spec": spec,"files": files,"agents_md": agents_md,
         })
         return baml_py.BamlSyncStream[typing.Union["stream_types.ResponseToUser", "stream_types.Coder"], typing.Union["types.ResponseToUser", "types.Coder"]](
           __result__,
@@ -319,11 +319,11 @@ class BamlHttpRequestClient:
     def __init__(self, options: DoNotUseDirectlyCallManager):
         self.__options = options
 
-    def CoderNotes(self, messages: typing.List["types.LLMMessage"],coder_notes: str,
+    def CoderNotes(self, messages: typing.List["types.LLMMessage"],coder_notes: str,index_html: str,
         baml_options: BamlCallOptions = {},
     ) -> baml_py.baml_py.HTTPRequest:
         __result__ = self.__options.merge_options(baml_options).create_http_request_sync(function_name="CoderNotes", args={
-            "messages": messages,"coder_notes": coder_notes,
+            "messages": messages,"coder_notes": coder_notes,"index_html": index_html,
         }, mode="request")
         return __result__
     def DescribeMedia(self, messages: typing.List["types.LLMMessage"],
@@ -340,11 +340,11 @@ class BamlHttpRequestClient:
             "messages": messages,"files": files,
         }, mode="request")
         return __result__
-    def GenerateSearchReplaceBlocks(self, messages: typing.List["types.LLMMessage"],
+    def GenerateSearchReplaceBlocks(self, messages: typing.List["types.LLMMessage"],agents_md: str,
         baml_options: BamlCallOptions = {},
     ) -> baml_py.baml_py.HTTPRequest:
         __result__ = self.__options.merge_options(baml_options).create_http_request_sync(function_name="GenerateSearchReplaceBlocks", args={
-            "messages": messages,
+            "messages": messages,"agents_md": agents_md,
         }, mode="request")
         return __result__
     def PickActionForUpload(self, messages: typing.List["types.LLMMessage"],
@@ -361,11 +361,11 @@ class BamlHttpRequestClient:
             "messages": messages,
         }, mode="request")
         return __result__
-    def UserResponseOrCoder(self, messages: typing.List["types.LLMMessage"],spec: str,files: typing.List[str],
+    def UserResponseOrCoder(self, messages: typing.List["types.LLMMessage"],spec: str,files: typing.List[str],agents_md: str,
         baml_options: BamlCallOptions = {},
     ) -> baml_py.baml_py.HTTPRequest:
         __result__ = self.__options.merge_options(baml_options).create_http_request_sync(function_name="UserResponseOrCoder", args={
-            "messages": messages,"spec": spec,"files": files,
+            "messages": messages,"spec": spec,"files": files,"agents_md": agents_md,
         }, mode="request")
         return __result__
     def UserResponseOrCoder2(self, messages: typing.List["types.LLMMessage"],spec: str,files: typing.List[str],
@@ -383,11 +383,11 @@ class BamlHttpStreamRequestClient:
     def __init__(self, options: DoNotUseDirectlyCallManager):
         self.__options = options
 
-    def CoderNotes(self, messages: typing.List["types.LLMMessage"],coder_notes: str,
+    def CoderNotes(self, messages: typing.List["types.LLMMessage"],coder_notes: str,index_html: str,
         baml_options: BamlCallOptions = {},
     ) -> baml_py.baml_py.HTTPRequest:
         __result__ = self.__options.merge_options(baml_options).create_http_request_sync(function_name="CoderNotes", args={
-            "messages": messages,"coder_notes": coder_notes,
+            "messages": messages,"coder_notes": coder_notes,"index_html": index_html,
         }, mode="stream")
         return __result__
     def DescribeMedia(self, messages: typing.List["types.LLMMessage"],
@@ -404,11 +404,11 @@ class BamlHttpStreamRequestClient:
             "messages": messages,"files": files,
         }, mode="stream")
         return __result__
-    def GenerateSearchReplaceBlocks(self, messages: typing.List["types.LLMMessage"],
+    def GenerateSearchReplaceBlocks(self, messages: typing.List["types.LLMMessage"],agents_md: str,
         baml_options: BamlCallOptions = {},
     ) -> baml_py.baml_py.HTTPRequest:
         __result__ = self.__options.merge_options(baml_options).create_http_request_sync(function_name="GenerateSearchReplaceBlocks", args={
-            "messages": messages,
+            "messages": messages,"agents_md": agents_md,
         }, mode="stream")
         return __result__
     def PickActionForUpload(self, messages: typing.List["types.LLMMessage"],
@@ -425,11 +425,11 @@ class BamlHttpStreamRequestClient:
             "messages": messages,
         }, mode="stream")
         return __result__
-    def UserResponseOrCoder(self, messages: typing.List["types.LLMMessage"],spec: str,files: typing.List[str],
+    def UserResponseOrCoder(self, messages: typing.List["types.LLMMessage"],spec: str,files: typing.List[str],agents_md: str,
         baml_options: BamlCallOptions = {},
     ) -> baml_py.baml_py.HTTPRequest:
         __result__ = self.__options.merge_options(baml_options).create_http_request_sync(function_name="UserResponseOrCoder", args={
-            "messages": messages,"spec": spec,"files": files,
+            "messages": messages,"spec": spec,"files": files,"agents_md": agents_md,
         }, mode="stream")
         return __result__
     def UserResponseOrCoder2(self, messages: typing.List["types.LLMMessage"],spec: str,files: typing.List[str],

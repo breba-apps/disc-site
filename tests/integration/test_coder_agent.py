@@ -59,7 +59,7 @@ async def test_agent_case_snapshots(monkeypatch, case_name: str, expected_modifi
     store = InMemoryFileStore(initial)
     before = store.snapshot()
 
-    async def fake_generate_search_replace_blocks(messages):
+    async def fake_generate_search_replace_blocks(messages, filestore):
         return llm_output
 
     if getattr(agent_mod, "b", None) is None:
@@ -113,7 +113,7 @@ async def test_agent_search_block_mismatch(monkeypatch) -> None:
     store = InMemoryFileStore(initial)
     before = store.snapshot()
 
-    async def fake_generate_search_replace_blocks(messages):
+    async def fake_generate_search_replace_blocks(messages, filestore):
         return mismatching_llm_output
 
     if getattr(agent_mod, "b", None) is None:
@@ -152,7 +152,7 @@ New content
     store = InMemoryFileStore(initial)
     before = store.snapshot()
 
-    async def fake_generate_search_replace_blocks(messages):
+    async def fake_generate_search_replace_blocks(messages, filestore):
         return missing_file_output
 
     if getattr(agent_mod, "b", None) is None:
@@ -184,7 +184,7 @@ async def test_agent_partial_success(monkeypatch) -> None:
     store = InMemoryFileStore(initial)
     before = store.snapshot()
 
-    async def fake_generate_search_replace_blocks(messages):
+    async def fake_generate_search_replace_blocks(messages, filestore):
         return llm_output
 
     async def fake_determine_files_to_edit(messages, files_list):

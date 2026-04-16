@@ -74,33 +74,3 @@ async def rename_product(user_name: str, product_id: str, new_name: str):
     await product.update(Set({Product.name: new_name}))
 
 
-async def set_product_executive_summary(user_name: str, product_id: str, executive_summary: str):
-    user_obj = await User.find_one(User.username == user_name, fetch_links=False)
-    if not user_obj:
-        raise ValueError(f"User not found: {user_name}")
-
-    product: Product | None = await Product.find_one(
-        Product.product_id == product_id,
-        Product.user.id == user_obj.id,
-    )
-
-    if not product:
-        raise ValueError(f"Product not found: {product_id}")
-
-    await product.update(Set({Product.executive_summary: executive_summary}))
-
-
-async def clear_product_executive_summary(user_name: str, product_id: str):
-    user_obj = await User.find_one(User.username == user_name, fetch_links=False)
-    if not user_obj:
-        raise ValueError(f"User not found: {user_name}")
-
-    product: Product | None = await Product.find_one(
-        Product.product_id == product_id,
-        Product.user.id == user_obj.id,
-    )
-
-    if not product:
-        raise ValueError(f"Product not found: {product_id}")
-
-    await product.update(Set({Product.executive_summary: None}))

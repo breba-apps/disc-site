@@ -20,13 +20,13 @@ template_string  ChatSystemInfo() #"<system_info>
     </limitation>
 "#
 
-function UserResponseOrCoder(messages: LLMMessage[], spec: string, files: string[]) -> ResponseToUser | Coder{
+function UserResponseOrCoder(messages: LLMMessage[], spec: string, files: string[], agents_md: string) -> ResponseToUser | Coder{
   client Gpt5Low
-  prompt #"You are an AI agent within Breba App. 
+  prompt #"You are an AI agent within Breba App.
 You will talk with user and when appropriate route them to the coder agent (coder).
 The user you are talking to is non-technical, avoid using technical jargon unless necessary. The user likely doesn't know anything about code or libraries.
 If the request is ambiguous, ask questions.
-Ask one question at a time and wait for the answer before asking the next question. 
+Ask one question at a time and wait for the answer before asking the next question.
 Questions should be very simple and easy to answer with one word or a short phrase.
 
 You may also answer user questions about the current state of the website.
@@ -46,6 +46,15 @@ IMPORTANT: User doesn't know anything about code. For implementation details, de
     {{ _.role("system") }}
     {{ ctx.output_format }}
 
+  {% if agents_md %}
+    {{ _.role("user") }}
+    Here are the project notes capturing user preferences, decisions, and constraints:
+    {{ agents_md }}
+
+    {{ _.role("assistant") }}
+    I understand the project context and will keep these preferences in mind.
+  {% endif %}
+
   {% if spec %}
     {{ _.role("user") }}
     I have the following specification for the website:
@@ -59,7 +68,7 @@ IMPORTANT: User doesn't know anything about code. For implementation details, de
     {{ _.role("user") }}
     Here are the files that exist in the project:
     {{ files }}
-    
+
     {{ _.role("assistant") }}
     Great this helps me understand the state of the project.
   {% endif %}
@@ -145,10 +154,11 @@ test BuildHelloWorldSite {
       }
     ],
     spec "This is a brand new project without a spec",
-    files []
+    files [],
+    agents_md ""
 
   }
-  
+
 }
 
 
@@ -162,7 +172,8 @@ test BuildHelloWorldSiteNoQuestions {
       }
     ],
     spec #"This is a brand new project without a spec"#,
-    files []
+    files [],
+    agents_md ""
   }
 }
 
@@ -184,7 +195,8 @@ test BuildHelloWorldSiteMultiTurn {
       },
     ],
     spec #"This is a brand new project without a spec"#,
-    files []
+    files [],
+    agents_md ""
   }
 }
 
@@ -215,7 +227,8 @@ test BuildLandingPage {
       },
     ],
     spec #""#,
-    files []    
+    files [],
+    agents_md ""
   }
 }
 
@@ -236,7 +249,8 @@ test BuildLandingPageConfusion{
         content #"Everywhere. I'm rebranding"#
       },
     ],
-    files ["index.html", "styles.css", "script.js", "sitemap.xml", "SPEC.md"]
+    files ["index.html", "styles.css", "script.js", "sitemap.xml", "AGENTS.md"]
+    agents_md ""
     spec #"# GravelGuard — Product Specification
 
 ## 1. Product Intent
@@ -455,7 +469,8 @@ test BuildLandingPageXMLSpec{
         content #"Make all icons green"#
       },
     ],
-    files ["index.html", "styles.css", "script.js", "sitemap.xml", "SPEC.md"]
+    files ["index.html", "styles.css", "script.js", "sitemap.xml", "AGENTS.md"]
+    agents_md ""
     spec #"
   <doc sitename="gravel.breba.site" title="GravelGuard | Fast Gravel Road Repair for Trailheads and Rural Access" url="https://gravel.breba.site" hostname="breba.site" description="GravelGuard provides fast gravel road repair for trailheads, campgrounds, rural driveways, and access roads, fixing potholes, washboards, and drainage issues." tags="gravel road repair, trailhead access, rural driveway maintenance, pothole repair, washboard road, recreation access, road grading, GravelGuard" fingerprint="bc9f4c760db66305">
   <main>

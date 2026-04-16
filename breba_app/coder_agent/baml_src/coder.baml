@@ -68,7 +68,7 @@ template_string StaticSiteBestPractices() #"
 <static_website_best_practices>
 Always make changes with the best practices in mind
 <website_structure>
-1. Keep HTML, CSS, and JavaScript in separate files.
+1. Keep HTML, CSS, and JavaScript in a single file.
 2. Use a logical and consistent file and folder structure.
 </website_structure>
 <html_best_practices>
@@ -122,7 +122,7 @@ Your output will be a list of filepaths.
 
 }
 
-function GenerateSearchReplaceBlocks(messages: LLMMessage[]) -> string {
+function GenerateSearchReplaceBlocks(messages: LLMMessage[], agents_md: string) -> string {
   client Gpt54Low
   prompt #"
 You are an agent working within Breba App. You are helping the user build and maintain their website.
@@ -150,7 +150,10 @@ ONLY EVER RETURN CODE IN A *SEARCH/REPLACE BLOCK*!
 {{ StaticSiteBestPractices() }}
     
 {{ SystemReminder() }}
-
+<agents_md>
+These are general notes about the project.
+{{ agents_md }}
+</agents_md>
     {% for message in messages %}
       {{ _.role(message.role) }}
       {{ message.content }}
@@ -183,7 +186,8 @@ test BuildHelloWorldSite {
         role "user"
         content #"Create a simple hello world site"#
       }
-    ]
+    ],
+    agents_md "Simple Hello world site, no preferences for styling or structure"
   }
 }
 
