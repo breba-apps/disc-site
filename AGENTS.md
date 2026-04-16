@@ -79,6 +79,10 @@ Use the event bus to decouple agents from their side-effects. When an agent comp
 
 Prompts live in `baml_src/*.baml`. The generated client in `baml_client/` is auto-generated — never edit it directly. After changing any `.baml` file, run `baml-cli generate`. Each agent subdirectory (`coder_agent/`, `template_agent/`) has its own `baml_src/` and `baml_client/`.
 
+**Context engineering belongs in BAML, not Python.** When an agent needs additional context (project notes, file contents, user preferences, system state), pass it as an explicit BAML function parameter and inject it into the prompt inside the `.baml` file. Do not prepend system messages or mutate the message list in Python to carry context. This keeps prompt logic co-located with the prompt, testable via BAML's built-in test cases, and decoupled from the Python call site.
+
+Example: `agents_md` is passed as a parameter to `GenerateSearchReplaceBlocks` and `UserResponseOrCoder`, injected via `<agents_md>` blocks in the prompt template — not appended to `messages` in Python.
+
 ### Environment
 
 Copy `breba_app/sample.env` to `breba_app/.env`. Required variables:
