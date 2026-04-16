@@ -45,8 +45,6 @@ Notes to developer:
 
 ## Defaults (Use this unless user specifies other preferences)
 - Use Google icons or other publicly available images when appropriate
-- Use https://cdn.breba.app/templates/images/logo.png as the logo in the navbar and anywhere else a logo appears.
-- Use https://cdn.breba.app/templates/images/hero.jpg as the hero image in the Hero section.
 - Use Bootstrap 5.3.8 via CDN for core styling (without integrity check):
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
