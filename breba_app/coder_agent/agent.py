@@ -17,7 +17,6 @@ NO_FILES_TO_MODIFY_MSG = "No files to modify for this request"
 MAX_RETRIES = 3
 
 
-
 def _modified_files(before: dict[str, FileWrite], after: dict[str, FileWrite]) -> list[str]:
     out: list[str] = []
     for path, after_file in after.items():
@@ -76,15 +75,11 @@ AGENTS_MD_FILE = "AGENTS.md"
 
 async def stream_user_response_or_coder(*, messages: list[LLMMessage], filestore: FileStore) \
         -> BamlStream:
-    # TODO: should read spec
-    if filestore.file_exists("index.html"):
-        spec = filestore.read_text("index.html")
+    if filestore.file_exists(INDEX_FILE_NAME):
+        index_html = filestore.read_text(INDEX_FILE_NAME)
     else:
-        spec = ""
-    return b.stream.UserResponseOrCoder(messages, spec, filestore.list_files())
-
-    logger.info(f"Empty message received: {await stream.get_final_response()}")
-    return "Something went wrong, empty message received"
+        index_html = ""
+    return b.stream.UserResponseOrCoder(messages, index_html, filestore.list_files())
 
 
 async def read_files_to_edit(*, original_context: list[LLMMessage], filestore: FileStore) -> tuple[str, set[str]]:
@@ -124,6 +119,7 @@ async def read_files_to_edit(*, original_context: list[LLMMessage], filestore: F
 
     return file_contents or NO_FILES_TO_MODIFY_MSG, seen_files
 
+
 async def update_executive_summary(*, messages: list[LLMMessage], filestore: FileStore) -> str | None:
     current = filestore.read_text(AGENTS_MD_FILE) if filestore.file_exists(AGENTS_MD_FILE) else ""
     index_html = filestore.read_text(INDEX_FILE_NAME) if filestore.file_exists(INDEX_FILE_NAME) else ""
@@ -134,6 +130,7 @@ async def update_executive_summary(*, messages: list[LLMMessage], filestore: Fil
     elif not agents_md or not isinstance(agents_md, str):
         logger.error("Invalid agents_md: %s", agents_md)
     return None
+
 
 async def run_coder_agent(*, messages: list[LLMMessage], filestore: FileStore) -> LLMMessage:
     """

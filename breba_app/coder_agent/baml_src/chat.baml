@@ -20,7 +20,7 @@ template_string  ChatSystemInfo() #"<system_info>
     </limitation>
 "#
 
-function UserResponseOrCoder(messages: LLMMessage[], spec: string, files: string[]) -> ResponseToUser | Coder{
+function UserResponseOrCoder(messages: LLMMessage[], index_html: string, files: string[]) -> ResponseToUser | Coder{
   client Gpt5Low
   prompt #"You are an AI agent within Breba App.
 You will talk with user and when appropriate route them to the coder agent (coder).
@@ -46,13 +46,13 @@ IMPORTANT: User doesn't know anything about code. For implementation details, de
     {{ _.role("system") }}
     {{ ctx.output_format }}
 
-  {% if spec %}
+  {% if index_html %}
     {{ _.role("user") }}
-    I have the following specification for the website:
-  {{ spec }}
+    Here is the current website code:
+  {{ index_html }}
 
     {{ _.role("assistant") }}
-    Ok. I understand the context of the website.
+    Ok. I understand the current state of the website.
   {% endif %}
 
   {% if files %}
@@ -144,7 +144,7 @@ test BuildHelloWorldSite {
         content #"Build a hello world website for me."#
       }
     ],
-    spec "This is a brand new project without a spec",
+    index_html"This is a brand new project without a spec",
     files []
   }
 
@@ -160,7 +160,7 @@ test BuildHelloWorldSiteNoQuestions {
         content #"Build a hello world website for me. Do not ask questions"#
       }
     ],
-    spec #"This is a brand new project without a spec"#,
+    index_html#"This is a brand new project without a spec"#,
     files []
   }
 }
@@ -182,7 +182,7 @@ test BuildHelloWorldSiteMultiTurn {
         content #"This is a simple demo. It doesn't matter"#
       },
     ],
-    spec #"This is a brand new project without a spec"#,
+    index_html#"This is a brand new project without a spec"#,
     files []
   }
 }
@@ -213,7 +213,7 @@ test BuildLandingPage {
         content #"We offer innovative AI solutions for businesses."#
       },
     ],
-    spec #""#,
+    index_html#""#,
     files []
   }
 }
@@ -236,7 +236,7 @@ test BuildLandingPageConfusion{
       },
     ],
     files ["index.html", "styles.css", "script.js", "sitemap.xml", "AGENTS.md"]
-    spec #"# GravelGuard — Product Specification
+    index_html#"# GravelGuard — Product Specification
 
 ## 1. Product Intent
 
@@ -455,7 +455,7 @@ test BuildLandingPageXMLSpec{
       },
     ],
     files ["index.html", "styles.css", "script.js", "sitemap.xml", "AGENTS.md"]
-    spec #"
+    index_html#"
   <doc sitename="gravel.breba.site" title="GravelGuard | Fast Gravel Road Repair for Trailheads and Rural Access" url="https://gravel.breba.site" hostname="breba.site" description="GravelGuard provides fast gravel road repair for trailheads, campgrounds, rural driveways, and access roads, fixing potholes, washboards, and drainage issues." tags="gravel road repair, trailhead access, rural driveway maintenance, pothole repair, washboard road, recreation access, road grading, GravelGuard" fingerprint="bc9f4c760db66305">
   <main>
     <head rend="h3">Protect Vehicles and Guests</head>
@@ -536,7 +536,7 @@ test BuildLandingPageXMLSpec2{
       }
     ],
     files ["index.html", "styles.css", "script.js", "sitemap.xml", "SPEC.md"]
-    spec #"
+    index_html#"
       GravelGuard — Executive Summary
 Status: Demo/concept only. Not trading, no real customers.
 Purpose: Validates market positioning and service framing for a mobile gravel road repair business before a full build-out. The primary conversion signal is inbound assessment requests.
@@ -638,7 +638,7 @@ test BuildLandingPageXMLSpec3{
       },
     ],
     files ["index.html", "styles.css", "script.js", "sitemap.xml", "SPEC.md"]
-    spec #"
+    index_html#"
       GravelGuard — Executive Summary
 Status: Demo/concept only. Not trading, no real customers.
 Purpose: Validates market positioning and service framing for a mobile gravel road repair business before a full build-out. The primary conversion signal is inbound assessment requests.
