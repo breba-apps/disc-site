@@ -27,7 +27,7 @@ template_string  SystemInfo() #"
 "#
 
 template_string TemplatingInstructions() #"
-**You will ask questions**
+**You will ask questions** (unless the user indicates they don't want questions)
 Ask ONE question at a time and wait for the answer before asking the next question.
 Questions must be simple and easy to answer with one word or a short phrase.
 "#
