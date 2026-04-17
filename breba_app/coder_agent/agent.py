@@ -7,7 +7,8 @@ from baml_py import BamlStream
 
 from breba_app.coder_agent.baml_client.async_client import b
 from breba_app.coder_agent.baml_client.types import LLMMessage
-from breba_app.filesystem import FileStore
+from breba_app.config import INDEX_FILE_NAME
+from breba_app.filesystem import FileStore, InMemoryFileStore, FileWrite
 from breba_app.search_replace_editing import apply_search_replace_many, ApplyEditsError
 
 logger = logging.getLogger(__name__)
@@ -16,15 +17,11 @@ NO_FILES_TO_MODIFY_MSG = "No files to modify for this request"
 MAX_RETRIES = 3
 
 
-def _snapshot(fs: FileStore) -> dict[str, str]:
-    return {p: fs.read_text(p) for p in fs.list_files()}
-
-
-def _modified_files(before: dict[str, str], after: dict[str, str]) -> list[str]:
+def _modified_files(before: dict[str, FileWrite], after: dict[str, FileWrite]) -> list[str]:
     out: list[str] = []
-    for path, after_content in after.items():
-        before_content = before.get(path)
-        if before_content is None or before_content != after_content:
+    for path, after_file in after.items():
+        before_file = before.get(path)
+        if before_file is None or before_file.content != after_file.content:
             out.append(path)
     return sorted(out)
 
@@ -53,7 +50,7 @@ def _retry_err_message(e: Exception | str) -> str:
 
 def _files_to_edit_message(file_contents: str) -> LLMMessage:
     return LLMMessage(role="user",
-                      content=f"The following files are available for editing. Do not edit any other files.\n"
+                      content=f"The following files are available for editing. Do not edit any other files. You may create new files if needed.\n"
                               f"<files_available_for_editing>\n{file_contents}\n</files_available_for_editing>")
 
 
@@ -73,17 +70,16 @@ async def _to_user_stream(first_msg: str, stream: AsyncIterable[str]) -> AsyncIt
         yield msg
 
 
+AGENTS_MD_FILE = "AGENTS.md"
+
+
 async def stream_user_response_or_coder(*, messages: list[LLMMessage], filestore: FileStore) \
         -> BamlStream:
-    # TODO: should read spec
-    if filestore.file_exists("index.html"):
-        spec = filestore.read_text("index.html")
+    if filestore.file_exists(INDEX_FILE_NAME):
+        index_html = filestore.read_text(INDEX_FILE_NAME)
     else:
-        spec = ""
-    return b.stream.UserResponseOrCoder(messages, spec, filestore.list_files())
-
-    logger.info(f"Empty message received: {await stream.get_final_response()}")
-    return "Something went wrong, empty message received"
+        index_html = ""
+    return b.stream.UserResponseOrCoder(messages, index_html, filestore.list_files())
 
 
 async def read_files_to_edit(*, original_context: list[LLMMessage], filestore: FileStore) -> tuple[str, set[str]]:
@@ -123,8 +119,18 @@ async def read_files_to_edit(*, original_context: list[LLMMessage], filestore: F
 
     return file_contents or NO_FILES_TO_MODIFY_MSG, seen_files
 
-async def generate_executive_summary(*, messages: list[LLMMessage], executive_summary: str | None) -> str:
-    return await b.CoderNotes(messages, executive_summary or "")
+
+async def update_executive_summary(*, messages: list[LLMMessage], filestore: FileStore) -> str | None:
+    current = filestore.read_text(AGENTS_MD_FILE) if filestore.file_exists(AGENTS_MD_FILE) else ""
+    index_html = filestore.read_text(INDEX_FILE_NAME) if filestore.file_exists(INDEX_FILE_NAME) else ""
+    agents_md = await b.CoderNotes(messages, current, index_html)
+    if agents_md and isinstance(agents_md, str) and agents_md.strip().lower() != "noop":
+        filestore.write_text(AGENTS_MD_FILE, agents_md)
+        return agents_md
+    elif not agents_md or not isinstance(agents_md, str):
+        logger.error("Invalid agents_md: %s", agents_md)
+    return None
+
 
 async def run_coder_agent(*, messages: list[LLMMessage], filestore: FileStore) -> LLMMessage:
     """
@@ -137,8 +143,8 @@ async def run_coder_agent(*, messages: list[LLMMessage], filestore: FileStore) -
 
     latest_file_contents, files_working_set = await read_files_to_edit(original_context=messages, filestore=filestore)
 
-    files = _snapshot(filestore)
-    before = dict(files)
+    before = filestore.snapshot()
+    edit_store = InMemoryFileStore(before)
     file_contents_index = None
 
     for attempt in range(MAX_RETRIES):
@@ -153,15 +159,15 @@ async def run_coder_agent(*, messages: list[LLMMessage], filestore: FileStore) -
             search_replace_text = await b.GenerateSearchReplaceBlocks(safe_context)
 
             safe_context.append(LLMMessage(role="assistant", content=search_replace_text))
-            edits = apply_search_replace_many(files, search_replace_text)
+            edits = apply_search_replace_many(edit_store, search_replace_text)
             # break on success
             break
         except ApplyEditsError as e:
-            # Atomic behavior: do not write anything on failure
+            # Atomic behavior: reset scratchpad and do not write anything on failure
             logging.exception(f"Failed to apply code changes ({attempt} of {MAX_RETRIES})")
+            edit_store = InMemoryFileStore(before)
 
             if attempt == MAX_RETRIES - 1:
-                # rollback to the last known good spec in case partially_updated_spec was used at any of the retries
                 logger.error("All attempts to apply code")
                 return LLMMessage(role="assistant",
                                   content=f"ERROR: All edit attempts failed. Try making a more specific request.")
@@ -169,12 +175,12 @@ async def run_coder_agent(*, messages: list[LLMMessage], filestore: FileStore) -
             safe_context.append(LLMMessage(role="user", content=_retry_err_message(e)))
             latest_file_contents = _render_files(files_working_set, filestore)
 
-    modified = _modified_files(before, files)
+    modified = _modified_files(before, edit_store.snapshot())
     if not modified:
         return LLMMessage(role="assistant", content="UPDATED_FILES:\n(none)")
 
     # Write back only changed/new files
     for path in modified:
-        filestore.write_text(path, files[path])
+        filestore.write_text(path, edit_store.read_text(path))
 
     return LLMMessage(role="assistant", content="UPDATED_FILES:\n" + "\n".join(f"- {p}" for p in modified))

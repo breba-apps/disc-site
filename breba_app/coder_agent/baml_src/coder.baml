@@ -68,7 +68,7 @@ template_string StaticSiteBestPractices() #"
 <static_website_best_practices>
 Always make changes with the best practices in mind
 <website_structure>
-1. Keep HTML, CSS, and JavaScript in separate files.
+1. Keep HTML, CSS, and JavaScript in a single file.
 2. Use a logical and consistent file and folder structure.
 </website_structure>
 <html_best_practices>
@@ -148,7 +148,7 @@ ONLY EVER RETURN CODE IN A *SEARCH/REPLACE BLOCK*!
 {{ SystemInfo() }}
 
 {{ StaticSiteBestPractices() }}
-    
+
 {{ SystemReminder() }}
 
     {% for message in messages %}
@@ -171,6 +171,16 @@ test BuildHelloWorldSite {
   functions [GenerateSearchReplaceBlocks]
   args {
     messages [
+      {
+        role "user"
+        content #"[AGENTS.md]
+Here are the project notes capturing user preferences, decisions, and constraints:
+Simple Hello world site, no preferences for styling or structure"#
+      }
+      {
+        role "assistant"
+        content #"I understand the project context and will keep these preferences in mind."#
+      }
       {
         role "user"
         content #"List files available in my project."#

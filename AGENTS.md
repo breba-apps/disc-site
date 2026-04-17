@@ -1,6 +1,6 @@
 # AGENTS.md
 
-This file provides guidance to Codex (Codex.ai/code) when working with code in this repository.
+This file provides guidance to AI coding agents when working with code in this repository.
 
 ## Commands
 
@@ -47,7 +47,7 @@ disc-site is an AI-powered website builder. Users describe what they want in a C
    - **Existing product** → BAML streaming response → `CoderAgent` if edits needed
 3. **CoderAgent** (`breba_app/coder_agent/agent.py`) uses BAML to generate search/replace blocks that are applied atomically to the HTML files (with up to 3 retries).
 4. Modified files are written to **Cloudflare R2** (`breba_app/filesystem/versioned_r2.py`) with versioning.
-5. **Event bus** (`breba_app/events/bus.py`) decouples side-effects: `CoderCompleted` triggers product-name extraction; `BeforeHandoffToCoder` triggers executive-summary generation.
+5. **Event bus** (`breba_app/events/bus.py`) decouples side-effects: `CoderCompleted` triggers product-name extraction; `BeforeHandoffToCoder` triggers `AGENTS.md` generation.
 
 ### Key components
 
@@ -62,9 +62,26 @@ disc-site is an AI-powered website builder. Users describe what they want in a C
 | `breba_app/storage.py` | Low-level R2/S3 read/write helpers |
 | `breba_app/search_replace_editing.py` | Applies search/replace blocks to file contents |
 
+### Event-driven design
+
+Use the event bus to decouple agents from their side-effects. When an agent completes a significant action, emit an event rather than calling the side-effect logic inline. Consumers subscribe to events and handle consequences independently. This keeps agents focused on their core task and makes it easy to add, remove, or reuse side-effects without modifying the agent.
+
+**Current events and their consumers:**
+
+| Event | When emitted | Consumer(s) |
+|---|---|---|
+| `BeforeHandoffToCoder` | Before AND after coder runs (edit and new product) | `ExecutiveSummaryGenerationConsumer` — writes `AGENTS.md` to the filestore |
+| `CoderCompleted` | After coder output is persisted to R2 | `ProductNameAssignmentConsumer` — extracts product name from HTML |
+
+**Emit with `wait=True`** when the consumer must complete before the next step (e.g., `BeforeHandoffToCoder` must finish writing `AGENTS.md` before files are saved to R2). Use fire-and-forget (`wait=False`, the default) for truly independent side-effects.
+
 ### BAML
 
 Prompts live in `baml_src/*.baml`. The generated client in `baml_client/` is auto-generated — never edit it directly. After changing any `.baml` file, run `baml-cli generate`. Each agent subdirectory (`coder_agent/`, `template_agent/`) has its own `baml_src/` and `baml_client/`.
+
+**Context engineering belongs in BAML, not Python.** When an agent needs additional context (project notes, file contents, user preferences, system state), pass it as an explicit BAML function parameter and inject it into the prompt inside the `.baml` file. Do not prepend system messages or mutate the message list in Python to carry context. This keeps prompt logic co-located with the prompt, testable via BAML's built-in test cases, and decoupled from the Python call site.
+
+Example: `agents_md` is passed as a parameter to `GenerateSearchReplaceBlocks` and `UserResponseOrCoder`, injected via `<agents_md>` blocks in the prompt template — not appended to `messages` in Python.
 
 ### Environment
 

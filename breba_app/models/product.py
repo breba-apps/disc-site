@@ -12,7 +12,6 @@ from .user import User
 class Product(Document):
     product_id: str = Field(default_factory=lambda: uuid4().hex)
     name: str | None = None
-    executive_summary: str | None = None
     user: Link[User]
     active: bool = False
     cost: float = 0

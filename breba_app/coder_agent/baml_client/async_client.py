@@ -82,19 +82,19 @@ class BamlAsyncClient:
     def parse_stream(self):
       return self.__llm_stream_parser
 
-    async def CoderNotes(self, messages: typing.List["types.LLMMessage"],coder_notes: str,
+    async def CoderNotes(self, messages: typing.List["types.LLMMessage"],coder_notes: str,index_html: str,
         baml_options: BamlCallOptions = {},
     ) -> str:
         # Check if on_tick is provided
         if 'on_tick' in baml_options:
             # Use streaming internally when on_tick is provided
-            __stream__ = self.stream.CoderNotes(messages=messages,coder_notes=coder_notes,
+            __stream__ = self.stream.CoderNotes(messages=messages,coder_notes=coder_notes,index_html=index_html,
                 baml_options=baml_options)
             return await __stream__.get_final_response()
         else:
             # Original non-streaming code
             __result__ = await self.__options.merge_options(baml_options).call_function_async(function_name="CoderNotes", args={
-                "messages": messages,"coder_notes": coder_notes,
+                "messages": messages,"coder_notes": coder_notes,"index_html": index_html,
             })
             return typing.cast(str, __result__.cast_to(types, types, stream_types, False, __runtime__))
     async def DescribeMedia(self, messages: typing.List["types.LLMMessage"],
@@ -172,34 +172,19 @@ class BamlAsyncClient:
                 "messages": messages,
             })
             return typing.cast(types.UploadToAssets, __result__.cast_to(types, types, stream_types, False, __runtime__))
-    async def UserResponseOrCoder(self, messages: typing.List["types.LLMMessage"],spec: str,files: typing.List[str],
+    async def UserResponseOrCoder(self, messages: typing.List["types.LLMMessage"],index_html: str,files: typing.List[str],
         baml_options: BamlCallOptions = {},
     ) -> typing.Union["types.ResponseToUser", "types.Coder"]:
         # Check if on_tick is provided
         if 'on_tick' in baml_options:
             # Use streaming internally when on_tick is provided
-            __stream__ = self.stream.UserResponseOrCoder(messages=messages,spec=spec,files=files,
+            __stream__ = self.stream.UserResponseOrCoder(messages=messages,index_html=index_html,files=files,
                 baml_options=baml_options)
             return await __stream__.get_final_response()
         else:
             # Original non-streaming code
             __result__ = await self.__options.merge_options(baml_options).call_function_async(function_name="UserResponseOrCoder", args={
-                "messages": messages,"spec": spec,"files": files,
-            })
-            return typing.cast(typing.Union["types.ResponseToUser", "types.Coder"], __result__.cast_to(types, types, stream_types, False, __runtime__))
-    async def UserResponseOrCoder2(self, messages: typing.List["types.LLMMessage"],spec: str,files: typing.List[str],
-        baml_options: BamlCallOptions = {},
-    ) -> typing.Union["types.ResponseToUser", "types.Coder"]:
-        # Check if on_tick is provided
-        if 'on_tick' in baml_options:
-            # Use streaming internally when on_tick is provided
-            __stream__ = self.stream.UserResponseOrCoder2(messages=messages,spec=spec,files=files,
-                baml_options=baml_options)
-            return await __stream__.get_final_response()
-        else:
-            # Original non-streaming code
-            __result__ = await self.__options.merge_options(baml_options).call_function_async(function_name="UserResponseOrCoder2", args={
-                "messages": messages,"spec": spec,"files": files,
+                "messages": messages,"index_html": index_html,"files": files,
             })
             return typing.cast(typing.Union["types.ResponseToUser", "types.Coder"], __result__.cast_to(types, types, stream_types, False, __runtime__))
     
@@ -211,11 +196,11 @@ class BamlStreamClient:
     def __init__(self, options: DoNotUseDirectlyCallManager):
         self.__options = options
 
-    def CoderNotes(self, messages: typing.List["types.LLMMessage"],coder_notes: str,
+    def CoderNotes(self, messages: typing.List["types.LLMMessage"],coder_notes: str,index_html: str,
         baml_options: BamlCallOptions = {},
     ) -> baml_py.BamlStream[str, str]:
         __ctx__, __result__ = self.__options.merge_options(baml_options).create_async_stream(function_name="CoderNotes", args={
-            "messages": messages,"coder_notes": coder_notes,
+            "messages": messages,"coder_notes": coder_notes,"index_html": index_html,
         })
         return baml_py.BamlStream[str, str](
           __result__,
@@ -283,23 +268,11 @@ class BamlStreamClient:
           lambda x: typing.cast(types.UploadToAssets, x.cast_to(types, types, stream_types, False, __runtime__)),
           __ctx__,
         )
-    def UserResponseOrCoder(self, messages: typing.List["types.LLMMessage"],spec: str,files: typing.List[str],
+    def UserResponseOrCoder(self, messages: typing.List["types.LLMMessage"],index_html: str,files: typing.List[str],
         baml_options: BamlCallOptions = {},
     ) -> baml_py.BamlStream[typing.Union["stream_types.ResponseToUser", "stream_types.Coder"], typing.Union["types.ResponseToUser", "types.Coder"]]:
         __ctx__, __result__ = self.__options.merge_options(baml_options).create_async_stream(function_name="UserResponseOrCoder", args={
-            "messages": messages,"spec": spec,"files": files,
-        })
-        return baml_py.BamlStream[typing.Union["stream_types.ResponseToUser", "stream_types.Coder"], typing.Union["types.ResponseToUser", "types.Coder"]](
-          __result__,
-          lambda x: typing.cast(typing.Union["stream_types.ResponseToUser", "stream_types.Coder"], x.cast_to(types, types, stream_types, True, __runtime__)),
-          lambda x: typing.cast(typing.Union["types.ResponseToUser", "types.Coder"], x.cast_to(types, types, stream_types, False, __runtime__)),
-          __ctx__,
-        )
-    def UserResponseOrCoder2(self, messages: typing.List["types.LLMMessage"],spec: str,files: typing.List[str],
-        baml_options: BamlCallOptions = {},
-    ) -> baml_py.BamlStream[typing.Union["stream_types.ResponseToUser", "stream_types.Coder"], typing.Union["types.ResponseToUser", "types.Coder"]]:
-        __ctx__, __result__ = self.__options.merge_options(baml_options).create_async_stream(function_name="UserResponseOrCoder2", args={
-            "messages": messages,"spec": spec,"files": files,
+            "messages": messages,"index_html": index_html,"files": files,
         })
         return baml_py.BamlStream[typing.Union["stream_types.ResponseToUser", "stream_types.Coder"], typing.Union["types.ResponseToUser", "types.Coder"]](
           __result__,
@@ -315,11 +288,11 @@ class BamlHttpRequestClient:
     def __init__(self, options: DoNotUseDirectlyCallManager):
         self.__options = options
 
-    async def CoderNotes(self, messages: typing.List["types.LLMMessage"],coder_notes: str,
+    async def CoderNotes(self, messages: typing.List["types.LLMMessage"],coder_notes: str,index_html: str,
         baml_options: BamlCallOptions = {},
     ) -> baml_py.baml_py.HTTPRequest:
         __result__ = await self.__options.merge_options(baml_options).create_http_request_async(function_name="CoderNotes", args={
-            "messages": messages,"coder_notes": coder_notes,
+            "messages": messages,"coder_notes": coder_notes,"index_html": index_html,
         }, mode="request")
         return __result__
     async def DescribeMedia(self, messages: typing.List["types.LLMMessage"],
@@ -357,18 +330,11 @@ class BamlHttpRequestClient:
             "messages": messages,
         }, mode="request")
         return __result__
-    async def UserResponseOrCoder(self, messages: typing.List["types.LLMMessage"],spec: str,files: typing.List[str],
+    async def UserResponseOrCoder(self, messages: typing.List["types.LLMMessage"],index_html: str,files: typing.List[str],
         baml_options: BamlCallOptions = {},
     ) -> baml_py.baml_py.HTTPRequest:
         __result__ = await self.__options.merge_options(baml_options).create_http_request_async(function_name="UserResponseOrCoder", args={
-            "messages": messages,"spec": spec,"files": files,
-        }, mode="request")
-        return __result__
-    async def UserResponseOrCoder2(self, messages: typing.List["types.LLMMessage"],spec: str,files: typing.List[str],
-        baml_options: BamlCallOptions = {},
-    ) -> baml_py.baml_py.HTTPRequest:
-        __result__ = await self.__options.merge_options(baml_options).create_http_request_async(function_name="UserResponseOrCoder2", args={
-            "messages": messages,"spec": spec,"files": files,
+            "messages": messages,"index_html": index_html,"files": files,
         }, mode="request")
         return __result__
     
@@ -379,11 +345,11 @@ class BamlHttpStreamRequestClient:
     def __init__(self, options: DoNotUseDirectlyCallManager):
         self.__options = options
 
-    async def CoderNotes(self, messages: typing.List["types.LLMMessage"],coder_notes: str,
+    async def CoderNotes(self, messages: typing.List["types.LLMMessage"],coder_notes: str,index_html: str,
         baml_options: BamlCallOptions = {},
     ) -> baml_py.baml_py.HTTPRequest:
         __result__ = await self.__options.merge_options(baml_options).create_http_request_async(function_name="CoderNotes", args={
-            "messages": messages,"coder_notes": coder_notes,
+            "messages": messages,"coder_notes": coder_notes,"index_html": index_html,
         }, mode="stream")
         return __result__
     async def DescribeMedia(self, messages: typing.List["types.LLMMessage"],
@@ -421,18 +387,11 @@ class BamlHttpStreamRequestClient:
             "messages": messages,
         }, mode="stream")
         return __result__
-    async def UserResponseOrCoder(self, messages: typing.List["types.LLMMessage"],spec: str,files: typing.List[str],
+    async def UserResponseOrCoder(self, messages: typing.List["types.LLMMessage"],index_html: str,files: typing.List[str],
         baml_options: BamlCallOptions = {},
     ) -> baml_py.baml_py.HTTPRequest:
         __result__ = await self.__options.merge_options(baml_options).create_http_request_async(function_name="UserResponseOrCoder", args={
-            "messages": messages,"spec": spec,"files": files,
-        }, mode="stream")
-        return __result__
-    async def UserResponseOrCoder2(self, messages: typing.List["types.LLMMessage"],spec: str,files: typing.List[str],
-        baml_options: BamlCallOptions = {},
-    ) -> baml_py.baml_py.HTTPRequest:
-        __result__ = await self.__options.merge_options(baml_options).create_http_request_async(function_name="UserResponseOrCoder2", args={
-            "messages": messages,"spec": spec,"files": files,
+            "messages": messages,"index_html": index_html,"files": files,
         }, mode="stream")
         return __result__
     

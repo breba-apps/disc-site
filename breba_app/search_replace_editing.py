@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from difflib import SequenceMatcher
 from pathlib import Path
 
+from breba_app.filesystem import FileStore
+
 logger = logging.getLogger(__name__)
 
 HEAD = r"^<{5,9} SEARCH>?\s*$"
@@ -530,7 +532,7 @@ def default_failed_match_message(edit: EditRequest, content: str, fence=DEFAULT_
     return error_message
 
 
-def apply_edits_many(files: dict[str, str], edits: list[EditRequest], fence=DEFAULT_FENCE) -> list[EditRequest]:
+def apply_edits_many(filestore: FileStore, edits: list[EditRequest], fence=DEFAULT_FENCE) -> list[EditRequest]:
     if not edits:
         raise ValueError("No edits found")
 
@@ -541,17 +543,17 @@ def apply_edits_many(files: dict[str, str], edits: list[EditRequest], fence=DEFA
     for edit in edits:
         if edit.search:
             try:
-                content = files[edit.path]
+                content = filestore.read_text(edit.path)
                 # make sure to use update file contents to iteratively apply edits
                 new_content = do_replace(content, edit.search, edit.replace)
                 if new_content:
-                    files[edit.path] = new_content
+                    filestore.write_text(edit.path, new_content)
                     passed.append(edit)
                 else:
                     logger.error(f"Failed to match {edit.search} in {content}")
                     error_message = default_failed_match_message(edit, content)
                     failed.append(error_message)
-            except KeyError as e:
+            except FileNotFoundError:
                 failed.append(f"File not found: {edit.path}")
             except ValueError as e:
                 failed.append(f"{e}")
@@ -559,12 +561,12 @@ def apply_edits_many(files: dict[str, str], edits: list[EditRequest], fence=DEFA
         else:
             # For new files or when appending we simply don't have a search block
             if edit.replace:
-                if edit.path in files.keys():
+                if filestore.file_exists(edit.path):
                     # appending to file
-                    files[edit.path] = files[edit.path] + edit.replace
+                    filestore.write_text(edit.path, filestore.read_text(edit.path) + edit.replace)
                 else:
                     # new file
-                    files[edit.path] = edit.replace
+                    filestore.write_text(edit.path, edit.replace)
             # If there is no replace block, we swallow the error because ignoring it is the best course of action
             passed.append(edit)
 
@@ -598,10 +600,10 @@ Just reply with fixed versions of the {blocks} above that failed to match. You M
     )
 
 
-def apply_search_replace_many(files: dict[str, str], search_replace_text: str) -> list[str]:
+def apply_search_replace_many(filestore: FileStore, search_replace_text: str) -> list[str]:
     """
     This method is used to apply search and replace blocks to many files
-    :param files: list of files that need to change
+    :param filestore: FileStore containing the files to modify
     :param search_replace_text: AI generated list of search and replace blocks to apply
     :return: list of applied edits and modified files
     """
@@ -612,5 +614,5 @@ def apply_search_replace_many(files: dict[str, str], search_replace_text: str) -
         # Probably need to raise ApplyEditsError because this could be recoverable
         raise ValueError(f"No edits found in the following search and replace pattern:\n{search_replace_text}")
 
-    applied_edits = apply_edits_many(files, edits)
+    applied_edits = apply_edits_many(filestore, edits)
     return [edit.path for edit in applied_edits]

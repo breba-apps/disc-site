@@ -16,9 +16,14 @@ Rules:
 "#
 
 
-template_string NewProjectExecutiveSummary() #"
+template_string NewProjectExecutiveSummary(index_html: string) #"
 Your job is to read the user's website request and produce a VERY concise summary.
 You will capture information about things the user wants, likes, or prefers facts the user or the website, and any constraints or requirements.
+
+{% if index_html %}
+  You can infer some details from the existing index.html file to understand the current implementation and extract any relevant details that should be included in the executive summary.
+  {{index_html}}
+{% endif %}
 
 {{RulesForExecutiveSummary()}}
 
@@ -50,7 +55,7 @@ template_string ExistingProjectExecutiveSummary() #"
     "#
 
 
-function CoderNotes(messages: LLMMessage[], coder_notes: string) -> string {
+function CoderNotes(messages: LLMMessage[], coder_notes: string, index_html: string) -> string {
   client Gpt5Low
     prompt #"You are an AI agent that helps maintain an executive summary of a user project. Analyze user conversation and extract high level information.
     {% if coder_notes %}
@@ -58,7 +63,7 @@ function CoderNotes(messages: LLMMessage[], coder_notes: string) -> string {
         {{ ExistingProjectExecutiveSummary() }}
     {% else %}
         {{ _.role("system") }}
-        {{ NewProjectExecutiveSummary() }}
+        {{ NewProjectExecutiveSummary(index_html) }}
     {% endif %}
 
 
@@ -68,12 +73,15 @@ function CoderNotes(messages: LLMMessage[], coder_notes: string) -> string {
     {% endfor %}
 
     {% if coder_notes %}
+      {{ _.role("assistant") }}
+      To update the existing agent instructions, please provide the current instructions.
       {{ _.role("user") }}
       Here is my current website description and preferences. If necessary, update it based on this conversation:
       {{ coder_notes }}
+
     {% else %}
       {{ _.role("system") }}
-      This is a brand new project, so there are no coder notes yet. Based on our conversation, create the initial coder notes for this project.
+      This is a brand new project, so there are no agent instructions yet. Based on our conversation, create the initial agent instructions for this project.
     {% endif %}
 
   "#
@@ -96,7 +104,8 @@ test DemoWebsiteNotes {
         content #"Let's make dark, but it doesn't really matter."#
       }
     ],
-    coder_notes ""
+    coder_notes "",
+    index_html ""
   }
 }
 
@@ -123,7 +132,8 @@ test ConsultingWebsiteNotes {
         content #"Let's make dark."#
       }
     ],
-    coder_notes ""
+    coder_notes "",
+    index_html ""
   }
 }
 
@@ -166,7 +176,8 @@ Content Requirements (High-Level)
 - Portfolio area with capacity for 5 projects (user will add content later)  
 
 Visual Preferences  
-- Light theme"#
+- Light theme"#,
+    index_html ""
   }
 }
 
@@ -209,7 +220,8 @@ Content Requirements (High-Level)
 - Portfolio area with capacity for 5 projects (user will add content later)  
 
 Visual Preferences  
-- Light theme"#
+- Light theme"#,
+    index_html ""
   }
 }
 
@@ -239,6 +251,21 @@ Calls to Action
 - Secondary CTA: "See samples of work"
 
 Visual Preferences  
-- Light theme"#
+- Light theme"#,
+    index_html ""
+  }
+}
+
+test WebsiteNoNotesButIndexHtmlProvided{
+  functions [CoderNotes]
+  args {
+    messages [
+        {
+            role "user"
+            content #"Change \"You like this landing page?\" to \"Landinge Pages for Everyone\""#
+        }
+    ],
+    coder_notes "",
+    index_html "<DOCTYPE html><html><body><h1>Landinge Pages for Everyone</h1></body></html>"
   }
 }
