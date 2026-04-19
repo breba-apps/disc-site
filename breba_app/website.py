@@ -1,3 +1,4 @@
+import logging
 import re
 from datetime import timezone, datetime
 from html.parser import HTMLParser
@@ -5,6 +6,8 @@ from html.parser import HTMLParser
 from breba_app.filesystem import FileStore
 from breba_app.paths import templates
 from breba_app.storage import PreviewFileStore
+
+logger = logging.getLogger(__name__)
 
 
 class CanonicalParser(HTMLParser):
@@ -73,16 +76,24 @@ async def build_preview(product_id: str, filestore: FileStore) -> None:
     Injects preview bridge into any HTML file that contains a <body> tag.
     """
     target_filestore = PreviewFileStore(product_id=product_id)
+    failed = []
     for path in filestore.list_files():
-        file_text = filestore.read_text(path)
-        lower = path.lower()
-        if not (lower.endswith(".html") or lower.endswith(".htm")):
-            target_filestore.write_text(path, file_text)
-        else:
-            modified_html = _inject_preview_bridge(file_text)
-            target_filestore.write_text(path, modified_html)
+        try:
+            lower = path.lower()
+            if lower.endswith(".html") or lower.endswith(".htm"):
+                file_text = filestore.read_text(path)
+                modified_html = _inject_preview_bridge(file_text)
+                target_filestore.write_text(path, modified_html)
+            else:
+                target_filestore.write_bytes(path, filestore.read_bytes(path))
+        except Exception:
+            logger.exception("Failed to copy %r to preview; skipping", path)
+            failed.append(path)
 
     await target_filestore.flush()
+
+    if failed:
+        raise RuntimeError(f"Preview build failed for {len(failed)} file(s): {', '.join(failed)}")
 
 if __name__ == "__main__":
     urls_list = [

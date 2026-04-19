@@ -6,7 +6,7 @@ import pytest
 
 from breba_app.coder_agent.agent import run_coder_agent, FileStore
 from breba_app.coder_agent.baml_client.types import LLMMessage
-from breba_app.chainlit_bridge import BrebaMessage
+from breba_app.llm_utils import BrebaMessage
 
 from breba_app.config import load_env
 from breba_app.filesystem import in_memory_store

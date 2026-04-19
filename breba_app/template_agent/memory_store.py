@@ -2,7 +2,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Dict, List, Tuple
 
-from breba_app.chainlit_bridge import BrebaMessage
+from breba_app.llm_utils import BrebaMessage
 from breba_app.template_agent.baml_client.stream_types import LLMMessage
 
 

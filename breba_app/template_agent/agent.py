@@ -1,7 +1,7 @@
 from typing import AsyncIterable
 
-from breba_app.chainlit_bridge import BrebaMessage
-from breba_app.llm_utils import trim
+from breba_app.chainlit_bridge import to_baml_message
+from breba_app.llm_utils import BrebaMessage, trim
 from breba_app.status_service import update_status
 from breba_app.template_agent.baml_client.async_client import b
 from breba_app.template_agent.baml_client.stream_types import Question as StreamQuestion, \
@@ -32,7 +32,7 @@ class TemplateAgent:
                                   ask_user_streaming_callback) -> WebsiteSpecification | Question:
         self.state.messages.append(message)
         trimmed = trim(self.state.messages)
-        baml_messages = [m.to_baml_message() for m in trimmed]
+        baml_messages = [to_baml_message(m) for m in trimmed]
 
         if baml_messages:
             stream = b.stream.GenerateSpecificationFromTemplate(baml_messages)

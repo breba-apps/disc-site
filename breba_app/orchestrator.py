@@ -8,7 +8,8 @@ from typing import AsyncIterator
 
 from baml_py import BamlStream
 
-from breba_app.chainlit_bridge import BrebaMessage
+from breba_app.chainlit_bridge import to_baml_message as _message_to_baml
+from breba_app.llm_utils import BrebaMessage
 from breba_app.coder_agent.agent import stream_user_response_or_coder, run_coder_agent, \
     update_executive_summary, AGENTS_MD_FILE
 from breba_app.coder_agent.baml_client.async_client import b
@@ -122,7 +123,7 @@ def save_state(user_name: str, product_id: str, state: OrchestratorState) -> Non
 
 
 def _to_baml_messages(messages: list[BrebaMessage]) -> list[LLMMessage]:
-    return [m.to_baml_message() for m in messages]
+    return [_message_to_baml(m) for m in messages]
 
 
 async def baml_stream_and_collect_user_response(stream: BamlStream, stream_receiver) -> str:
@@ -216,20 +217,34 @@ async def handle_user_message(user_name: str, product_id: str, message: BrebaMes
         await start_product(user_name, product_id, message, coder_completed_callback, stream_to_user_callback)
 
 
+_PROJECT_ROOT_FILES = {"favicon.ico"}
+
+
 @agent_task
 async def handle_file_upload(user_name: str, product_id: str, message: BrebaMessage,
                              coder_completed_callback, stream_to_user_callback):
+    project_root_elements = []
     image_elements = []
     non_image_elements = []
     for el in message.elements:
-        content_type, _ = mimetypes.guess_type(el.name)
-        if content_type and content_type.startswith("image/"):
-            image_elements.append(el)
+        if el.name in _PROJECT_ROOT_FILES:
+            project_root_elements.append(el)
         else:
-            non_image_elements.append(el)
+            content_type, _ = mimetypes.guess_type(el.name)
+            if content_type and content_type.startswith("image/"):
+                image_elements.append(el)
+            else:
+                non_image_elements.append(el)
 
     try:
         uploaded_paths = []
+        project_root_paths = []
+
+        if project_root_elements:
+            orchestrator_state = load_state(user_name, product_id)
+            for el in project_root_elements:
+                orchestrator_state.filestore.write_bytes(el.name, Path(el.path).read_bytes())
+                project_root_paths.append(el.name)
 
         if non_image_elements:
             non_image_paths = await asyncio.gather(*(
@@ -239,7 +254,7 @@ async def handle_file_upload(user_name: str, product_id: str, message: BrebaMess
 
         if image_elements:
             orchestrator_state = load_state(user_name, product_id)
-            messages_for_intent = _to_baml_messages(orchestrator_state.messages) + [message.to_baml_message()]
+            messages_for_intent = _to_baml_messages(orchestrator_state.messages) + [_message_to_baml(message)]
             upload_intent = await b.ShouldUploadToAssets(messages_for_intent)
 
             if upload_intent.problem:
@@ -252,11 +267,22 @@ async def handle_file_upload(user_name: str, product_id: str, message: BrebaMess
                                 file_name=el.name, description=message.content) for el in image_elements))
                 uploaded_paths.extend(image_paths)
 
-        if uploaded_paths or image_elements:
+        if project_root_paths or uploaded_paths or image_elements:
+            content_parts = []
+            if project_root_paths:
+                content_parts.append("Here are project files added to the website root:\n"
+                                     + "\n".join(f"- {p}" for p in project_root_paths))
             if uploaded_paths:
-                files_block = "\n".join(f"- {p}" for p in uploaded_paths)
-                updated_content = f"Here are newly uploaded files:\n{files_block}\n\n{message.content}"
-                message = BrebaMessage(role="user", content=updated_content, elements=message.elements)
+                content_parts.append("Here are newly uploaded files:\n"
+                                     + "\n".join(f"- {p}" for p in uploaded_paths))
+            # Strip project-root files from elements — they're already in the filestore
+            # and their MIME type (e.g. image/vnd.microsoft.icon) would be rejected by the LLM.
+            forwarded_elements = [el for el in message.elements if el.name not in _PROJECT_ROOT_FILES]
+            if content_parts:
+                updated_content = "\n\n".join(content_parts) + "\n\n" + message.content
+                message = BrebaMessage(role="user", content=updated_content, elements=forwarded_elements)
+            else:
+                message = BrebaMessage(role="user", content=message.content, elements=forwarded_elements)
 
             await handle_user_message(user_name, product_id, message,
                                       coder_completed_callback=coder_completed_callback,

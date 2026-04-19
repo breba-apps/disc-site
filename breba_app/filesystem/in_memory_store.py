@@ -7,7 +7,11 @@ from breba_app.filesystem.models import FileWrite
 class FileStore(Protocol):
     def read_text(self, path: str) -> str: ...
 
+    def read_bytes(self, path: str) -> bytes: ...
+
     def write_text(self, path: str, content: str) -> None: ...
+
+    def write_bytes(self, path: str, content: bytes) -> None: ...
 
     def list_files(self) -> list[str]: ...
 
@@ -34,10 +38,24 @@ class InMemoryFileStore(FileStore):
             raise FileNotFoundError(path)
         return self._files[path].content.decode("utf-8")
 
+    def read_bytes(self, path: str) -> bytes:
+        path = _normalize_path(path)
+        if path not in self._files:
+            raise FileNotFoundError(path)
+        content = self._files[path].content
+        if isinstance(content, str):
+            return content.encode("utf-8")
+        return content
+
     def write_text(self, path: str, content: str) -> None:
         path = _normalize_path(path)
         content_type, _ = mimetypes.guess_type(path)
         self._files[path] = FileWrite(path, content.encode("utf-8"), content_type)
+
+    def write_bytes(self, path: str, content: bytes) -> None:
+        path = _normalize_path(path)
+        content_type, _ = mimetypes.guess_type(path)
+        self._files[path] = FileWrite(path, content, content_type)
 
     def list_files(self) -> list[str]:
         return sorted(self._files.keys())

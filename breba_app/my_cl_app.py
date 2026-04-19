@@ -11,7 +11,8 @@ from chainlit import Message
 
 import breba_app.ui_bus as ui_bus
 from auth import verify_password
-from breba_app.chainlit_bridge import BrebaMessage, from_cl_message
+from breba_app.chainlit_bridge import from_cl_message
+from breba_app.llm_utils import BrebaMessage
 from breba_app.config import SPEC_FILE_NAME, INDEX_FILE_NAME
 from breba_app.controllers.product_controller import delete_product, rename_product
 from breba_app.events.bus import HandleContext, Consumer, event_bus
