@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from breba_app.chainlit_bridge import BrebaMessage, BrebaElement
+from breba_app.llm_utils import BrebaMessage, BrebaElement
 from breba_app.config import load_env
 from breba_app.filesystem import in_memory_store, InMemoryFileStore
 from breba_app.orchestrator import handle_user_message, save_state, OrchestratorState, handle_file_upload
@@ -108,3 +108,77 @@ async def test_image_interpret() -> None:
     forwarded_message: BrebaMessage = mock_handle.call_args.args[2]
     assert forwarded_message.content == last_user_msg.content
     assert len(forwarded_message.elements) == 2
+
+
+@pytest.mark.asyncio
+async def test_favicon_written_to_filestore() -> None:
+    """favicon.ico bypasses CDN and lands directly in the project filestore."""
+    _, last_user_msg, user_name, product_id, store = setup_orchestrator_case("upload_files")
+    favicon_path = UPLOAD_ASSETS_DIR / "favicon.ico"
+    message = BrebaMessage(
+        role="user",
+        content=last_user_msg.content,
+        elements=[BrebaElement(path=str(favicon_path), name="favicon.ico")],
+    )
+
+    with patch("breba_app.tools.upload_files.save_image_file_to_private") as mock_save, \
+         patch("breba_app.orchestrator.handle_user_message") as mock_handle:
+        await handle_file_upload(
+            user_name=user_name,
+            product_id=product_id,
+            message=message,
+            coder_completed_callback=coder_completed_callback,
+            stream_to_user_callback=StreamUserCallback(),
+        )
+
+    # Never uploaded to CDN
+    mock_save.assert_not_called()
+    # Coder was invoked
+    mock_handle.assert_called_once()
+    # File is in the filestore with correct bytes
+    assert store.file_exists("favicon.ico")
+    assert store._files["favicon.ico"].content == favicon_path.read_bytes()
+    # Message tells the coder about the project-root file
+    forwarded_message: BrebaMessage = mock_handle.call_args.args[2]
+    assert "favicon.ico" in forwarded_message.content
+    assert "project files added to the website root" in forwarded_message.content.lower()
+    # favicon.ico must not be in elements — its MIME type would be rejected by the LLM
+    assert all(el.name != "favicon.ico" for el in forwarded_message.elements)
+
+
+@pytest.mark.asyncio
+async def test_favicon_mixed_with_image_upload() -> None:
+    """favicon.ico goes to filestore; regular images still go to CDN."""
+    _, last_user_msg, user_name, product_id, store = setup_orchestrator_case("upload_files")
+    favicon_path = UPLOAD_ASSETS_DIR / "favicon.ico"
+    message = BrebaMessage(
+        role="user",
+        content=last_user_msg.content,
+        elements=[
+            BrebaElement(path=str(favicon_path), name="favicon.ico"),
+            BrebaElement(path=str(UPLOAD_ASSETS_DIR / "Limitations.jpeg"), name="Limitations.jpeg"),
+        ],
+    )
+
+    upload_intent = MagicMock()
+    upload_intent.problem = None
+    upload_intent.upload = True
+
+    with patch("breba_app.tools.upload_files.save_image_file_to_private",
+               side_effect=["https://example.com/Limitations.jpeg"]) as mock_save, \
+         patch("breba_app.orchestrator.b.ShouldUploadToAssets", new=AsyncMock(return_value=upload_intent)), \
+         patch("breba_app.orchestrator.handle_user_message") as mock_handle:
+        await handle_file_upload(
+            user_name=user_name,
+            product_id=product_id,
+            message=message,
+            coder_completed_callback=coder_completed_callback,
+            stream_to_user_callback=StreamUserCallback(),
+        )
+
+    # Only the JPEG was uploaded to CDN
+    mock_save.assert_called_once()
+    assert store.file_exists("favicon.ico")
+    forwarded_message: BrebaMessage = mock_handle.call_args.args[2]
+    assert "favicon.ico" in forwarded_message.content
+    assert "https://example.com/Limitations.jpeg" in forwarded_message.content

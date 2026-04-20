@@ -99,6 +99,6 @@ Remember I'm not a developer. In can follow instructions and copy and paste code
     },
     {
         "title": "Favicon",
-        "question": "I want to upload a favicon are you ready?"
+        "question": "I want to upload favicons are you ready?"
     },
 ]

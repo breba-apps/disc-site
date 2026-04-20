@@ -1,6 +1,50 @@
+import base64
+
 import pytest
 
-from breba_app.github_deploy import get_pages_url, slugify
+from breba_app.github_deploy import GitHubGraphQLError, get_pages_url, slugify
+
+
+def _make_head_oid_response(mocker, oid: str):
+    r = mocker.MagicMock()
+    r.raise_for_status = mocker.MagicMock()
+    r.json.return_value = {
+        "data": {
+            "repository": {
+                "ref": {"target": {"__typename": "Commit", "oid": oid}}
+            }
+        }
+    }
+    return r
+
+
+def _make_commit_response(mocker, oid: str = "newoid", url: str = "https://github.com/o/r/commit/newoid"):
+    r = mocker.MagicMock()
+    r.raise_for_status = mocker.MagicMock()
+    r.json.return_value = {
+        "data": {
+            "createCommitOnBranch": {
+                "commit": {"oid": oid, "url": url}
+            }
+        }
+    }
+    return r
+
+
+def _make_error_response(mocker, message: str):
+    r = mocker.MagicMock()
+    r.raise_for_status = mocker.MagicMock()
+    r.json.return_value = {"errors": [{"message": message}]}
+    return r
+
+
+def _mock_graphql_client(mocker, responses: list):
+    mock_client = mocker.AsyncMock()
+    mock_client.__aenter__ = mocker.AsyncMock(return_value=mock_client)
+    mock_client.__aexit__ = mocker.AsyncMock(return_value=False)
+    mock_client.post = mocker.AsyncMock(side_effect=responses)
+    mocker.patch("breba_app.github_deploy.httpx.AsyncClient", return_value=mock_client)
+    return mock_client
 
 
 # ---------------------------------------------------------------------------
@@ -84,84 +128,182 @@ async def test_create_repo_name_conflict_retries(mocker):
 
 
 # ---------------------------------------------------------------------------
-# get_file_sha (mocked httpx)
+# push_files — unit tests (mocked httpx)
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
-async def test_get_file_sha_exists(mocker):
-    mock_response = mocker.MagicMock()
-    mock_response.status_code = 200
-    mock_response.json.return_value = {"sha": "abc123"}
+async def test_push_files_all_files_in_single_commit(mocker):
+    """All files land in a single GraphQL commit — exactly two POST calls total."""
+    mock_client = _mock_graphql_client(mocker, [
+        _make_head_oid_response(mocker, "abc123"),
+        _make_commit_response(mocker, "newoid"),
+    ])
 
-    mock_client = mocker.AsyncMock()
-    mock_client.__aenter__ = mocker.AsyncMock(return_value=mock_client)
-    mock_client.__aexit__ = mocker.AsyncMock(return_value=False)
-    mock_client.get = mocker.AsyncMock(return_value=mock_response)
-    mocker.patch("breba_app.github_deploy.httpx.AsyncClient", return_value=mock_client)
+    from breba_app.github_deploy import push_files
+    result = await push_files(
+        "token", "octocat", "my-repo",
+        {"index.html": "<html></html>", "styles.css": "body {}"},
+    )
 
-    from breba_app.github_deploy import get_file_sha
-    sha = await get_file_sha("token", "octocat", "my-repo", "index.html")
-    assert sha == "abc123"
+    assert result == {"commit_oid": "newoid", "commit_url": "https://github.com/o/r/commit/newoid", "branch": "main"}
+    # Exactly one head-OID query + one commit mutation — no per-file calls
+    assert mock_client.post.call_count == 2
 
-
-@pytest.mark.asyncio
-async def test_get_file_sha_not_found(mocker):
-    mock_response = mocker.MagicMock()
-    mock_response.status_code = 404
-
-    mock_client = mocker.AsyncMock()
-    mock_client.__aenter__ = mocker.AsyncMock(return_value=mock_client)
-    mock_client.__aexit__ = mocker.AsyncMock(return_value=False)
-    mock_client.get = mocker.AsyncMock(return_value=mock_response)
-    mocker.patch("breba_app.github_deploy.httpx.AsyncClient", return_value=mock_client)
-
-    from breba_app.github_deploy import get_file_sha
-    sha = await get_file_sha("token", "octocat", "my-repo", "index.html")
-    assert sha is None
-
-
-# ---------------------------------------------------------------------------
-# push_file (mocked)
-# ---------------------------------------------------------------------------
-
-@pytest.mark.asyncio
-async def test_push_file_new(mocker):
-    mocker.patch("breba_app.github_deploy.get_file_sha", return_value=None)
-
-    mock_response = mocker.MagicMock()
-    mock_response.raise_for_status = mocker.MagicMock()
-
-    mock_client = mocker.AsyncMock()
-    mock_client.__aenter__ = mocker.AsyncMock(return_value=mock_client)
-    mock_client.__aexit__ = mocker.AsyncMock(return_value=False)
-    mock_client.put = mocker.AsyncMock(return_value=mock_response)
-    mocker.patch("breba_app.github_deploy.httpx.AsyncClient", return_value=mock_client)
-
-    from breba_app.github_deploy import push_file
-    await push_file("token", "octocat", "my-repo", "index.html", "<html></html>")
-
-    call_kwargs = mock_client.put.call_args.kwargs
-    assert "sha" not in call_kwargs["json"]
+    commit_input = mock_client.post.call_args_list[1].kwargs["json"]["variables"]["input"]
+    paths = {a["path"] for a in commit_input["fileChanges"]["additions"]}
+    assert paths == {"index.html", "styles.css"}
 
 
 @pytest.mark.asyncio
-async def test_push_file_update_includes_sha(mocker):
-    mocker.patch("breba_app.github_deploy.get_file_sha", return_value="existing_sha")
+async def test_push_files_content_is_base64_encoded(mocker):
+    _mock_graphql_client(mocker, [
+        _make_head_oid_response(mocker, "abc123"),
+        _make_commit_response(mocker),
+    ])
 
-    mock_response = mocker.MagicMock()
-    mock_response.raise_for_status = mocker.MagicMock()
+    from breba_app.github_deploy import push_files
+    await push_files("token", "octocat", "my-repo", {"index.html": "hello"})
 
-    mock_client = mocker.AsyncMock()
-    mock_client.__aenter__ = mocker.AsyncMock(return_value=mock_client)
-    mock_client.__aexit__ = mocker.AsyncMock(return_value=False)
-    mock_client.put = mocker.AsyncMock(return_value=mock_response)
-    mocker.patch("breba_app.github_deploy.httpx.AsyncClient", return_value=mock_client)
+    from breba_app.github_deploy import httpx
+    commit_input = httpx.AsyncClient.return_value.post.call_args_list[1].kwargs["json"]["variables"]["input"]
+    encoded = commit_input["fileChanges"]["additions"][0]["contents"]
+    assert base64.b64decode(encoded).decode() == "hello"
 
-    from breba_app.github_deploy import push_file
-    await push_file("token", "octocat", "my-repo", "index.html", "<html></html>")
 
-    call_kwargs = mock_client.put.call_args.kwargs
-    assert call_kwargs["json"]["sha"] == "existing_sha"
+@pytest.mark.asyncio
+async def test_push_files_bytes_content(mocker):
+    _mock_graphql_client(mocker, [
+        _make_head_oid_response(mocker, "abc123"),
+        _make_commit_response(mocker),
+    ])
+
+    from breba_app.github_deploy import push_files
+    await push_files("token", "octocat", "my-repo", {"logo.png": b"\x89PNG\r\n"})
+
+    from breba_app.github_deploy import httpx
+    commit_input = httpx.AsyncClient.return_value.post.call_args_list[1].kwargs["json"]["variables"]["input"]
+    encoded = commit_input["fileChanges"]["additions"][0]["contents"]
+    assert base64.b64decode(encoded) == b"\x89PNG\r\n"
+
+
+@pytest.mark.asyncio
+async def test_push_files_with_deletions(mocker):
+    mock_client = _mock_graphql_client(mocker, [
+        _make_head_oid_response(mocker, "abc123"),
+        _make_commit_response(mocker),
+    ])
+
+    from breba_app.github_deploy import push_files
+    await push_files(
+        "token", "octocat", "my-repo",
+        {"index.html": "<html></html>"},
+        files_to_delete=["old.html"],
+    )
+
+    commit_input = mock_client.post.call_args_list[1].kwargs["json"]["variables"]["input"]
+    assert commit_input["fileChanges"]["deletions"] == [{"path": "old.html"}]
+    assert len(commit_input["fileChanges"]["additions"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_push_files_expected_head_oid_skips_query(mocker):
+    """When expected_head_oid is supplied, the head-OID query is skipped."""
+    mock_client = _mock_graphql_client(mocker, [
+        _make_commit_response(mocker),
+    ])
+
+    from breba_app.github_deploy import push_files
+    await push_files(
+        "token", "octocat", "my-repo",
+        {"index.html": "hi"},
+        expected_head_oid="preknown_oid",
+    )
+
+    assert mock_client.post.call_count == 1
+    commit_input = mock_client.post.call_args_list[0].kwargs["json"]["variables"]["input"]
+    assert commit_input["expectedHeadOid"] == "preknown_oid"
+
+
+@pytest.mark.asyncio
+async def test_push_files_retries_on_head_oid_conflict(mocker):
+    """A race on expectedHeadOid triggers a retry with a freshly fetched OID."""
+    mocker.patch("breba_app.github_deploy.asyncio.sleep")
+
+    mock_client = _mock_graphql_client(mocker, [
+        _make_head_oid_response(mocker, "stale_oid"),        # first head query
+        _make_error_response(mocker, "expectedHeadOid was at stale_oid"),  # commit fails
+        _make_head_oid_response(mocker, "fresh_oid"),        # retry head query
+        _make_commit_response(mocker, "retried_oid"),        # commit succeeds
+    ])
+
+    from breba_app.github_deploy import push_files
+    result = await push_files(
+        "token", "octocat", "my-repo",
+        {"index.html": "hi"},
+        retries=3, retry_delay=0.0,
+    )
+
+    assert result["commit_oid"] == "retried_oid"
+    assert mock_client.post.call_count == 4
+
+    # Second attempt used the fresh OID
+    second_commit_input = mock_client.post.call_args_list[3].kwargs["json"]["variables"]["input"]
+    assert second_commit_input["expectedHeadOid"] == "fresh_oid"
+
+
+@pytest.mark.asyncio
+async def test_push_files_raises_on_non_retryable_error(mocker):
+    """Errors unrelated to head-OID race are not retried."""
+    _mock_graphql_client(mocker, [
+        _make_head_oid_response(mocker, "abc123"),
+        _make_error_response(mocker, "Repository not found"),
+    ])
+
+    from breba_app.github_deploy import push_files
+    with pytest.raises(GitHubGraphQLError, match="Repository not found"):
+        await push_files("token", "octocat", "my-repo", {"index.html": "hi"}, retries=3)
+
+
+@pytest.mark.asyncio
+async def test_push_files_raises_after_max_retries(mocker):
+    """Retryable error exhausts all attempts and then raises."""
+    mocker.patch("breba_app.github_deploy.asyncio.sleep")
+
+    responses = []
+    for _ in range(3):
+        responses.append(_make_head_oid_response(mocker, "stale_oid"))
+        responses.append(_make_error_response(mocker, "expectedHeadOid mismatch"))
+
+    _mock_graphql_client(mocker, responses)
+
+    from breba_app.github_deploy import push_files
+    with pytest.raises(GitHubGraphQLError):
+        await push_files("token", "octocat", "my-repo", {"index.html": "hi"}, retries=3, retry_delay=0.0)
+
+
+@pytest.mark.asyncio
+async def test_push_files_empty_raises():
+    from breba_app.github_deploy import push_files
+    with pytest.raises(ValueError):
+        await push_files("token", "octocat", "my-repo", {})
+
+
+@pytest.mark.asyncio
+async def test_push_files_client_created_once(mocker):
+    """The httpx client is created once per push_files call, not per retry."""
+    mocker.patch("breba_app.github_deploy.asyncio.sleep")
+
+    mock_client = _mock_graphql_client(mocker, [
+        _make_head_oid_response(mocker, "s"),
+        _make_error_response(mocker, "expectedHeadOid mismatch"),
+        _make_head_oid_response(mocker, "f"),
+        _make_commit_response(mocker),
+    ])
+
+    from breba_app.github_deploy import push_files, httpx
+    await push_files("token", "octocat", "my-repo", {"f": "x"}, retries=3, retry_delay=0.0)
+
+    assert httpx.AsyncClient.call_count == 1
 
 
 # ---------------------------------------------------------------------------

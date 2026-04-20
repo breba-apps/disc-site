@@ -129,14 +129,19 @@ class PreviewFileStore(FileStore):
         """
         Schedule an async upload of UTF-8 text.
         """
-        content_type, encoding = mimetypes.guess_type(path)
+        self.write_bytes(path, content.encode("utf-8"))
+
+    def write_bytes(self, path: str, content: bytes) -> None:
+        """
+        Schedule an async upload of raw bytes.
+        """
+        content_type, _ = mimetypes.guess_type(path)
         key = self._make_key(path)
-        body = content.encode("utf-8")
 
         task = asyncio.create_task(
             self._put_object(
                 key=key,
-                body=body,
+                body=content,
                 content_type=content_type,
             )
         )

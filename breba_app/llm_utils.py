@@ -1,10 +1,24 @@
 import logging
+import mimetypes
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Literal
 
 from jinja2 import Environment, FileSystemLoader
 from openai import AsyncOpenAI
 
-from breba_app.chainlit_bridge import BrebaMessage
+
+@dataclass
+class BrebaElement:
+    path: str
+    name: str
+
+
+@dataclass
+class BrebaMessage:
+    role: Literal["user", "assistant"]
+    content: str
+    elements: list[BrebaElement] = field(default_factory=list)
 
 _client: AsyncOpenAI | None = None
 
@@ -21,6 +35,13 @@ USER_ROLE = "user"
 MAX_MESSAGES = 100
 MAX_WORDS = 20_000
 MAX_IMAGES = 30
+
+_LLM_SUPPORTED_IMAGE_TYPES = {"image/png", "image/jpeg", "image/webp", "image/gif"}
+
+
+def is_llm_supported_image(content_type: str | None) -> bool:
+    """Return True if the MIME type is accepted as inline image input by the LLM API."""
+    return content_type in _LLM_SUPPORTED_IMAGE_TYPES
 
 
 def trim(messages: list[BrebaMessage]) -> list[BrebaMessage]:

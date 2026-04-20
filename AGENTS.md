@@ -61,6 +61,7 @@ disc-site is an AI-powered website builder. Users describe what they want in a C
 | `breba_app/models/` | Beanie ODM models for MongoDB (`User`, `Product`, `Deployment`) |
 | `breba_app/storage.py` | Low-level R2/S3 read/write helpers |
 | `breba_app/search_replace_editing.py` | Applies search/replace blocks to file contents |
+| `breba_app/llm_utils.py` | Shared LLM utilities: message trimming, product-name generation, supported image types, and any misc LLM logic without a more specific home |
 
 ### Event-driven design
 
@@ -95,6 +96,8 @@ Copy `breba_app/sample.env` to `breba_app/.env`. Required variables:
 The env loader searches up the directory tree for a `.secrets/breba/` directory structure before falling back to `.env`.
 
 ## Coding style
+
+**Shared LLM logic goes in `llm_utils.py`:** Any LLM-related helper that doesn't have a more functionally cohesive home (e.g. `is_llm_supported_image`, message trimming) belongs in `breba_app/llm_utils.py`. Expose behaviour through functions, not exported constants.
 
 **No inline styles:** Never use `style="..."` attributes in HTML. Always add a class and put the rule in `styles.css`.
 
