@@ -180,6 +180,13 @@
     }
 
 
+    document.getElementById('popup-copy').addEventListener('click', async () => {
+        const selection = popup.dataset.selection;
+        if (!selection) return;
+        await navigator.clipboard.writeText(selection);
+        hidePopup();
+    });
+
     submit.addEventListener('click', async () => {
         const query = input.value.trim();
         const selection = popup.dataset.selection;
