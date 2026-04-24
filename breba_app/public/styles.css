@@ -1645,3 +1645,7 @@ section {
     z-index: 1055; /* above navbar & modals backdrop */
     width: min(92vw, 720px);
 }
+.icon-sm {
+    font-size: 18px;
+    vertical-align: middle;
+}

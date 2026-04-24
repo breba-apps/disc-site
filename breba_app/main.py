@@ -1,5 +1,7 @@
+import io
 import logging
 import os
+import zipfile
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Annotated
@@ -11,13 +13,16 @@ from chainlit.utils import mount_chainlit
 from fastapi import FastAPI, Request, Depends
 from fastapi import Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, StreamingResponse
 from starlette.staticfiles import StaticFiles
 
 import asyncio
 
 import dns.resolver
 import breba_app.github_oauth as github_oauth
+from breba_app.models.product import Product
+from breba_app.models.user import User
+from breba_app.storage import read_all_files_in_memory
 from breba_app.auth import change_password
 from breba_app.config import init_db, load_env
 from breba_app.github_controller import enforce_github_https, get_github_connection_status, handle_github_callback, list_github_orgs, set_github_custom_domain
@@ -279,6 +284,35 @@ async def github_status(
 ):
     result = await get_github_connection_status(current_user.identifier)
     return {"connected": result.connected, "github_username": result.github_username}
+
+
+@app.get("/download")
+async def download_project(
+        current_user: Annotated[cl.User, Depends(get_current_user)],
+):
+    user_name = current_user.identifier
+    user = await User.find_one(User.username == user_name)
+    if not user:
+        return HTMLResponse("User not found.", status_code=404)
+
+    active_product = await Product.find_one(Product.user.id == user.id, Product.active == True)
+    if not active_product:
+        return HTMLResponse("No active product found.", status_code=404)
+
+    filestore = await read_all_files_in_memory(user_name, active_product.product_id)
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for path in filestore.list_files():
+            zf.writestr(path, filestore.read_bytes(path))
+    buf.seek(0)
+
+    product_name = (active_product.name or "project").replace(" ", "-").lower()
+    return StreamingResponse(
+        buf,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{product_name}.zip"'},
+    )
 
 
 current_file_dir = Path(__file__).parent
