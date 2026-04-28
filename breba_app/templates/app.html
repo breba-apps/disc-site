@@ -423,6 +423,11 @@
         }
     });
 
+    // Prevent Chrome from opening dropped files in a new tab.
+    // Capture phase ensures the page cancels the browser default first.
+    window.addEventListener('dragover', e => e.preventDefault(), true);
+    window.addEventListener('drop', e => e.preventDefault(), true);
+
     // ===== Upload modal =====
     (() => {
         // Staged files: array of {file: File, path: string}
@@ -434,6 +439,8 @@
         const fileItems = document.getElementById('upload-file-items');
         const statusEl = document.getElementById('upload-status');
         const submitBtn = document.getElementById('upload-submit-btn');
+        const uploadModal = document.getElementById('uploadModal');
+        const generatorFrame = document.getElementById('generator-frame');
 
         function renderStagedFiles() {
             fileItems.innerHTML = '';
@@ -499,6 +506,13 @@
                     pairs.push(...children);
                 }
             }
+
+            if (pairs.length === 0 && dataTransfer.files?.length) {
+                Array.from(dataTransfer.files).forEach(file => {
+                    pairs.push({file, path: file.name});
+                });
+            }
+
             // Deduplicate by path (last write wins)
             const map = new Map(stagedFiles.map(p => [p.path, p]));
             pairs.forEach(p => map.set(p.path, p));
@@ -536,10 +550,20 @@
         });
 
         // Reset when modal opens
-        document.getElementById('uploadModal').addEventListener('show.bs.modal', () => {
+        uploadModal.addEventListener('show.bs.modal', () => {
             stagedFiles = [];
             renderStagedFiles();
             clearStatus();
+            if (generatorFrame) {
+                generatorFrame.style.pointerEvents = 'none';
+            }
+        });
+
+        uploadModal.addEventListener('hidden.bs.modal', () => {
+            dropZone.classList.remove('drag-over');
+            if (generatorFrame) {
+                generatorFrame.style.pointerEvents = '';
+            }
         });
 
         // Submit
