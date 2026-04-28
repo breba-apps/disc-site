@@ -74,6 +74,7 @@ async def populate_from_cloud_storage(user_name: str, session_id: str):
     index_path = get_index_html_path(session_id)
     state, _ = await asyncio.gather(init_orchestrator(user_name, session_id),
                                     ui_bus.init_product_preview(index_path))
+    await ui_bus.set_active_product(session_id)
 
     filestore = state.filestore
 
@@ -199,7 +200,8 @@ async def main():
         product_id = cl.user_session.get("id")
         cl.user_session.set("product_id", product_id)
         await asyncio.gather(create_blank_product_for(user_name, PRODUCT_NAME_PLACEHOLDER, True),
-                             event_bus.subscribe(CoderCompleted, ProductNameAssignmentConsumer(user_name, product_id)))
+                             event_bus.subscribe(CoderCompleted, ProductNameAssignmentConsumer(user_name, product_id)),
+                             ui_bus.set_active_product(product_id))
 
     await cl.Message(
         content="Hello, I'm here to assist you with building your website. We can build it together one step at a time,"
