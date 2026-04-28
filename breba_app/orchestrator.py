@@ -38,10 +38,7 @@ class OrchestratorState:
 
 # Keyed by (user_name, product_id)
 _state_store: dict[tuple[str, str], OrchestratorState] = defaultdict(
-    lambda: OrchestratorState(
-        messages=[],
-        filestore=InMemoryFileStore()
-    )
+    lambda: OrchestratorState(messages=[], filestore=InMemoryFileStore())
 )
 
 
@@ -109,6 +106,11 @@ async def init_orchestrator(user_name: str, product_id: str) -> OrchestratorStat
         _inject_agents_md(state.messages, filestore.read_text(AGENTS_MD_FILE))
     save_state(user_name, product_id, state)
     return state
+
+
+def state_exists(user_name: str, product_id: str) -> bool:
+    """Return True if an active session exists for this user/product pair."""
+    return (user_name, product_id) in _state_store
 
 
 def load_state(user_name: str, product_id: str) -> OrchestratorState:

@@ -1,3 +1,4 @@
+import asyncio
 import io
 import logging
 import os
@@ -7,26 +8,27 @@ from pathlib import Path
 from typing import Annotated
 
 import chainlit as cl
+import dns.resolver
 from chainlit.auth import get_current_user, clear_auth_cookie
 from chainlit.auth.cookie import clear_oauth_state_cookie
 from chainlit.utils import mount_chainlit
-from fastapi import FastAPI, Request, Depends
+from fastapi import FastAPI, File, Request, Depends, UploadFile
 from fastapi import Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from starlette.staticfiles import StaticFiles
 
-import asyncio
-
-import dns.resolver
 import breba_app.github_oauth as github_oauth
-from breba_app.models.product import Product
-from breba_app.models.user import User
-from breba_app.storage import read_all_files_in_memory
 from breba_app.auth import change_password
 from breba_app.config import init_db, load_env
-from breba_app.github_controller import enforce_github_https, get_github_connection_status, handle_github_callback, list_github_orgs, set_github_custom_domain
+from breba_app.github_controller import enforce_github_https, get_github_connection_status, handle_github_callback, \
+    list_github_orgs, set_github_custom_domain
+from breba_app.models.product import Product
+from breba_app.models.user import User
+from breba_app.orchestrator import load_state, state_exists
 from breba_app.paths import app_path, templates
+from breba_app.storage import read_all_files_in_memory, save_files
+from breba_app.website import build_preview
 
 logging.basicConfig(level=logging.INFO, )
 logger = logging.getLogger(__name__)
@@ -313,6 +315,38 @@ async def download_project(
         media_type="application/zip",
         headers={"Content-Disposition": f'attachment; filename="{product_name}.zip"'},
     )
+
+
+@app.post("/upload")
+async def upload_files(
+        current_user: Annotated[cl.User, Depends(get_current_user)],
+        files: list[UploadFile] = File(...),
+        paths: list[str] = Form(...),
+        product_id: str = Form(...),
+):
+    if len(files) != len(paths):
+        return JSONResponse({"error": "files and paths counts do not match"}, status_code=400)
+
+    user_name = current_user.identifier
+
+    if not state_exists(user_name, product_id):
+        # TODO: This can happen if we have multiple instances.
+        #  The better way to do it ensure an instance lock is to re-use JSON-RPC over websockets
+        return JSONResponse({"error": "User session is not found"}, status_code=404)
+
+    state = load_state(user_name, product_id)
+
+    for upload, rel_path in zip(files, paths):
+        content = await upload.read()
+        state.filestore.write_bytes(rel_path, content)
+
+    files_to_save = list(state.filestore.snapshot().values())
+    new_version, _ = await asyncio.gather(
+        save_files(user_name, product_id, files_to_save),
+        build_preview(product_id, state.filestore),
+    )
+
+    return JSONResponse({"version": new_version})
 
 
 current_file_dir = Path(__file__).parent

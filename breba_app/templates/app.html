@@ -243,6 +243,39 @@
     </div>
 </div>
 
+<!-- Upload Modal -->
+<div class="modal fade" id="uploadModal" tabindex="-1" aria-labelledby="uploadModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="uploadModalLabel">Upload Files</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="upload-drop-zone">
+                    <span class="material-icons upload-drop-icon">upload_file</span>
+                    <p class="upload-drop-hint">Drop files or folders here</p>
+                    <label class="btn btn-outline-secondary btn-sm">
+                        Browse files
+                        <input type="file" id="upload-file-input" multiple hidden>
+                    </label>
+                </div>
+
+                <div id="upload-file-list" class="d-none">
+                    <p class="upload-file-list-label">Files to upload:</p>
+                    <ul id="upload-file-items" class="upload-file-items"></ul>
+                </div>
+
+                <div id="upload-status" class="d-none"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="upload-submit-btn" disabled>Upload</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="container-fluid vh-100 p-2">
     <div class="row h-100 g-1 align-items-stretch">
         <!-- Sidebar Panel (buttons) -->
@@ -375,6 +408,8 @@
         });
     });
 
+    let activeProductId = null;
+
     window.addEventListener('message', (event) => {
         if (event.data.method === "reload_product") {
             document.location.reload();
@@ -383,7 +418,199 @@
             document.getElementById("left-panels").classList.add("col-md-3-5");
             document.getElementById("right-panel").classList.remove("d-none");
             document.getElementById("sidebar-buttons").classList.remove("d-none");
+        } else if (event.data.method === "set_active_product") {
+            activeProductId = event.data.body;
         }
     });
+
+    // Prevent Chrome from opening dropped files in a new tab.
+    // Capture phase ensures the page cancels the browser default first.
+    window.addEventListener('dragover', e => e.preventDefault(), true);
+    window.addEventListener('drop', e => e.preventDefault(), true);
+
+    // ===== Upload modal =====
+    (() => {
+        // Staged files: array of {file: File, path: string}
+        let stagedFiles = [];
+
+        const dropZone = document.getElementById('upload-drop-zone');
+        const fileInput = document.getElementById('upload-file-input');
+        const fileList = document.getElementById('upload-file-list');
+        const fileItems = document.getElementById('upload-file-items');
+        const statusEl = document.getElementById('upload-status');
+        const submitBtn = document.getElementById('upload-submit-btn');
+        const uploadModal = document.getElementById('uploadModal');
+        const generatorFrame = document.getElementById('generator-frame');
+
+        function renderStagedFiles() {
+            fileItems.innerHTML = '';
+            stagedFiles.forEach(({path}) => {
+                const li = document.createElement('li');
+                li.textContent = path;
+                fileItems.appendChild(li);
+            });
+            const hasFiles = stagedFiles.length > 0;
+            fileList.classList.toggle('d-none', !hasFiles);
+            submitBtn.disabled = !hasFiles;
+        }
+
+        function setStatus(msg, isError = false) {
+            statusEl.textContent = msg;
+            statusEl.className = isError ? 'text-danger mt-2' : 'text-success mt-2';
+        }
+
+        function clearStatus() {
+            statusEl.textContent = '';
+            statusEl.className = 'd-none';
+        }
+
+        // Recursively read a FileSystemEntry into {file, path} pairs
+        async function readEntry(entry, basePath = '') {
+            return new Promise((resolve) => {
+                if (entry.isFile) {
+                    entry.file(file => {
+                        const path = basePath ? `${basePath}/${entry.name}` : entry.name;
+                        resolve([{file, path}]);
+                    });
+                } else if (entry.isDirectory) {
+                    const reader = entry.createReader();
+                    const results = [];
+                    const readAll = () => {
+                        reader.readEntries(async (entries) => {
+                            if (entries.length === 0) {
+                                resolve(results);
+                                return;
+                            }
+                            const dirPath = basePath ? `${basePath}/${entry.name}` : entry.name;
+                            for (const e of entries) {
+                                const children = await readEntry(e, dirPath);
+                                results.push(...children);
+                            }
+                            readAll();
+                        });
+                    };
+                    readAll();
+                } else {
+                    resolve([]);
+                }
+            });
+        }
+
+        async function addFromDataTransfer(dataTransfer) {
+            const pairs = [];
+            const items = Array.from(dataTransfer.items || []);
+            for (const item of items) {
+                const entry = item.webkitGetAsEntry?.();
+                if (entry) {
+                    const children = await readEntry(entry);
+                    pairs.push(...children);
+                }
+            }
+
+            if (pairs.length === 0 && dataTransfer.files?.length) {
+                Array.from(dataTransfer.files).forEach(file => {
+                    pairs.push({file, path: file.name});
+                });
+            }
+
+            // Deduplicate by path (last write wins)
+            const map = new Map(stagedFiles.map(p => [p.path, p]));
+            pairs.forEach(p => map.set(p.path, p));
+            stagedFiles = Array.from(map.values());
+            renderStagedFiles();
+        }
+
+        function addFromFileList(fileList) {
+            const map = new Map(stagedFiles.map(p => [p.path, p]));
+            Array.from(fileList).forEach(file => {
+                // webkitRelativePath is set when using webkitdirectory input; otherwise use name
+                const path = file.webkitRelativePath || file.name;
+                map.set(path, {file, path});
+            });
+            stagedFiles = Array.from(map.values());
+            renderStagedFiles();
+        }
+
+        // Drag and drop
+        dropZone.addEventListener('dragover', e => {
+            e.preventDefault();
+            dropZone.classList.add('drag-over');
+        });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+        dropZone.addEventListener('drop', async e => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            await addFromDataTransfer(e.dataTransfer);
+        });
+
+        // File input
+        fileInput.addEventListener('change', () => {
+            addFromFileList(fileInput.files);
+            fileInput.value = '';
+        });
+
+        // Reset when modal opens
+        uploadModal.addEventListener('show.bs.modal', () => {
+            stagedFiles = [];
+            renderStagedFiles();
+            clearStatus();
+            if (generatorFrame) {
+                generatorFrame.style.pointerEvents = 'none';
+            }
+        });
+
+        uploadModal.addEventListener('hidden.bs.modal', () => {
+            dropZone.classList.remove('drag-over');
+            if (generatorFrame) {
+                generatorFrame.style.pointerEvents = '';
+            }
+        });
+
+        // Submit
+        submitBtn.addEventListener('click', async () => {
+            if (stagedFiles.length === 0) return;
+            if (!activeProductId) {
+                setStatus('No active product. Please wait for the session to load.', true);
+                return;
+            }
+
+            submitBtn.disabled = true;
+            setStatus('Uploading…');
+
+            const formData = new FormData();
+            formData.append('product_id', activeProductId);
+            stagedFiles.forEach(({file, path}) => {
+                formData.append('files', file);
+                formData.append('paths', path);
+            });
+
+            try {
+                const res = await fetch('/upload', {method: 'POST', body: formData});
+                const data = await res.json();
+                if (!res.ok) {
+                    setStatus(data.error || 'Upload failed', true);
+                    submitBtn.disabled = false;
+                    return;
+                }
+                setStatus(`Uploaded ${stagedFiles.length} file(s) successfully.`);
+
+                // Refresh preview and version list
+                reload_preview();
+                versionsState.list = versionsState.list.includes(data.version)
+                    ? versionsState.list
+                    : [...versionsState.list, data.version];
+                versionsState.active = data.version;
+                renderVersionsMenu();
+
+                // Close modal after a short delay so user sees success
+                setTimeout(() => {
+                    bootstrap.Modal.getInstance(document.getElementById('uploadModal'))?.hide();
+                }, 800);
+            } catch (err) {
+                setStatus('Upload failed: ' + err.message, true);
+                submitBtn.disabled = false;
+            }
+        });
+    })();
 </script>
 {% endblock %}

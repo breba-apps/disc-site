@@ -43,6 +43,10 @@ async def update_versions_list(versions: list[int], active: int):
     await cl.send_window_message({"method": "update_versions_list", "body": {"versions": versions, "active": active}})
 
 
+async def set_active_product(product_id: str):
+    await cl.send_window_message({"method": "set_active_product", "body": product_id})
+
+
 async def update_follow_up_questions_list(questions: list[str]):
     await cl.send_window_message({"method": "update_follow_up_questions_list", "body": questions})
 

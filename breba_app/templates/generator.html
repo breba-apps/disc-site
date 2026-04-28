@@ -91,9 +91,18 @@
     <!-- Follow-up buttons container -->
     <div id="followup-buttons" class="position-relative ms-3 follow-up-btn-container"></div>
 
-    <a href="/download" class="btn btn-sm btn-outline-secondary ms-auto" title="Download project files">
-        <span class="material-icons icon-sm">download</span>
-    </a>
+    <div class="ms-auto d-flex gap-2">
+        <button type="button"
+                class="btn btn-sm btn-outline-secondary"
+                title="Upload files"
+                data-bs-toggle="modal"
+                data-bs-target="#uploadModal">
+            <span class="material-icons icon-sm">upload_file</span>
+        </button>
+        <a href="/download" class="btn btn-sm btn-outline-secondary" title="Download project files">
+            <span class="material-icons icon-sm">download</span>
+        </a>
+    </div>
 </div>
 
 <div id="generator-wrapper" class="position-relative w-100 h-100">
