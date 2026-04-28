@@ -25,7 +25,7 @@ from breba_app.github_controller import enforce_github_https, get_github_connect
     list_github_orgs, set_github_custom_domain
 from breba_app.models.product import Product
 from breba_app.models.user import User
-from breba_app.orchestrator import load_state
+from breba_app.orchestrator import load_state, state_exists
 from breba_app.paths import app_path, templates
 from breba_app.storage import read_all_files_in_memory, save_files
 from breba_app.website import build_preview
@@ -329,12 +329,12 @@ async def upload_files(
 
     user_name = current_user.identifier
 
-    state = load_state(user_name, product_id)
-
-    if state is None:
+    if not state_exists(user_name, product_id):
         # TODO: This can happen if we have multiple instances.
         #  The better way to do it ensure an instance lock is to re-use JSON-RPC over websockets
         return JSONResponse({"error": "User session is not found"}, status_code=404)
+
+    state = load_state(user_name, product_id)
 
     for upload, rel_path in zip(files, paths):
         content = await upload.read()
