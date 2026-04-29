@@ -11,6 +11,9 @@ logger = logging.getLogger(__name__)
 
 
 async def run_deployment(user_id: str, product: Product, deployment_id: str) -> str:
+    # TODO: optimize this. User should be fully stored in session at login
+    # TODO: optimize this. Product_id should come with the request from the forntend
+    #  (in fact this is a bug that product is stored in session). The internal id should be mapped on the backend
     try:
         user = await User.get(PydanticObjectId(user_id))
         deployment = await Deployment.get_or_create(deployment_id, product.id, user.id)

@@ -4,7 +4,6 @@ from motor.motor_asyncio import AsyncIOMotorClient
 
 from breba_app.models.deployment import Deployment
 from breba_app.models.product import Product
-from breba_app.models.user import User
 from breba_app.storage import delete_product_files, delete_uploaded_sites
 
 
