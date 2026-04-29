@@ -94,8 +94,13 @@ async def sitemap():
 async def index(request: Request):
     """
     Home page route.
-    If cookie "X-Chainlit-Session-id" is set, render app.html (builder UI).
-    Otherwise render home.html (landing page).
+
+    If "oauth_success" cookie is set (post-OAuth callback), render home.html
+    with login_success=True and clear the cookie. This takes precedence over
+    session_cookie.
+
+    Otherwise: "X-Chainlit-Session-id" cookie present → app.html (builder UI);
+    absent → home.html (landing page).
     """
     session_cookie = request.cookies.get("X-Chainlit-Session-id")
     oauth_success = request.cookies.get("oauth_success")
