@@ -2,7 +2,7 @@ import datetime
 from typing import List
 from uuid import uuid4
 
-from beanie import Document, Link, BackLink
+from beanie import Document, Link, BackLink, PydanticObjectId
 from beanie.odm.operators.update.general import Set
 from pydantic import Field
 
@@ -34,8 +34,8 @@ class Product(Document):
         await self.inc({Product.cost: amount})
 
 
-async def create_blank_product_for(user_name: str, product_name: str, active: bool):
-    user_obj = await User.find_one(User.username == user_name)
+async def create_blank_product_for(user_id: str, product_name: str, active: bool):
+    user_obj = await User.get(PydanticObjectId(user_id))
 
     # Clear all active products
     await Product.find(Product.user.id == user_obj.id, Product.active == True).update(
@@ -47,8 +47,8 @@ async def create_blank_product_for(user_name: str, product_name: str, active: bo
     return product
 
 
-async def set_product_active(user_name: str, product_id: str):
-    user_obj = await User.find_one(User.username == user_name)
+async def set_product_active(user_id: str, product_id: str):
+    user_obj = await User.get(PydanticObjectId(user_id))
 
     # Clear all active products
     await Product.find(Product.user.id == user_obj.id, Product.active == True).update(
@@ -59,8 +59,8 @@ async def set_product_active(user_name: str, product_id: str):
     await product.update(Set({Product.active: True}))
 
 
-async def create_or_update_product_for(user_name: str, product_id: str | None = None, product_name: str | None = None):
-    user_obj = await User.find_one(User.username == user_name, fetch_links=False)
+async def create_or_update_product_for(user_id: str, product_id: str | None = None, product_name: str | None = None):
+    user_obj = await User.get(PydanticObjectId(user_id))
 
     # Clear all active products
     await Product.find(Product.user.id == user_obj.id, Product.active == True).update(

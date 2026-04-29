@@ -292,8 +292,7 @@ async def github_status(
 async def download_project(
         current_user: Annotated[cl.User, Depends(get_current_user)],
 ):
-    user_name = current_user.identifier
-    user = await User.find_one(User.username == user_name)
+    user = await User.find_one(User.username == current_user.identifier)
     if not user:
         return HTMLResponse("User not found.", status_code=404)
 
@@ -301,7 +300,7 @@ async def download_project(
     if not active_product:
         return HTMLResponse("No active product found.", status_code=404)
 
-    filestore = await read_all_files_in_memory(user_name, active_product.product_id)
+    filestore = await read_all_files_in_memory(str(user.id), active_product.product_id)
 
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
@@ -327,14 +326,18 @@ async def upload_files(
     if len(files) != len(paths):
         return JSONResponse({"error": "files and paths counts do not match"}, status_code=400)
 
-    user_name = current_user.identifier
+    user = await User.find_one(User.username == current_user.identifier)
+    if not user:
+        return JSONResponse({"error": "User not found"}, status_code=404)
 
-    if not state_exists(user_name, product_id):
+    user_id = str(user.id)
+
+    if not state_exists(user_id, product_id):
         # TODO: This can happen if we have multiple instances.
         #  The better way to do it ensure an instance lock is to re-use JSON-RPC over websockets
         return JSONResponse({"error": "User session is not found"}, status_code=404)
 
-    state = load_state(user_name, product_id)
+    state = load_state(user_id, product_id)
 
     for upload, rel_path in zip(files, paths):
         content = await upload.read()
@@ -342,7 +345,7 @@ async def upload_files(
 
     files_to_save = list(state.filestore.snapshot().values())
     new_version, _ = await asyncio.gather(
-        save_files(user_name, product_id, files_to_save),
+        save_files(user_id, product_id, files_to_save),
         build_preview(product_id, state.filestore),
     )
 

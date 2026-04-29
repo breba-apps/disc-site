@@ -10,7 +10,7 @@ class BeforeHandoffToCoder(BaseModel):
     """
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    user_name: str
+    user_id: str
     product_id: str
     messages: list[LLMMessage]
     filestore: InMemoryFileStore

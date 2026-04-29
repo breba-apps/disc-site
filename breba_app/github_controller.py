@@ -105,12 +105,13 @@ async def list_github_orgs(username: str) -> list[str] | None:
         raise
 
 
-async def deploy_to_github(username: str, product_id: str, org: str | None = None) -> GitHubDeployResult:
+async def deploy_to_github(user_id: str, product_id: str, org: str | None = None) -> GitHubDeployResult:
     """Deploy product files to GitHub Pages under an org.
 
     On first deploy, `org` is required. It is stored on the product and reused on re-deploys.
     """
-    user = await User.find_one(User.username == username)
+    from beanie import PydanticObjectId
+    user = await User.get(PydanticObjectId(user_id))
     if not user or not user.github_access_token:
         return GitHubDeployResult(success=False, error="GitHub account not connected.")
 
@@ -121,7 +122,7 @@ async def deploy_to_github(username: str, product_id: str, org: str | None = Non
     token = decrypt_token(user.github_access_token)
 
     try:
-        file_store = await read_all_files_in_memory(username, product_id)
+        file_store = await read_all_files_in_memory(user_id, product_id)
         files = {path: fw.content for path, fw in file_store._files.items()}
 
         if product.github_repo:
@@ -149,7 +150,7 @@ async def deploy_to_github(username: str, product_id: str, org: str | None = Non
         return GitHubDeployResult(success=True, pages_url=pages_url, repo_url=repo_url)
 
     except Exception as exc:
-        logger.error("GitHub deploy error for user %s product %s: %s", username, product_id, exc)
+        logger.error("GitHub deploy error for user %s product %s: %s", user_id, product_id, exc)
         return GitHubDeployResult(success=False, error=str(exc))
 
 

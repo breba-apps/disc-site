@@ -11,15 +11,15 @@ class TemplateAgentState:
     messages: List[BrebaMessage]
 
 
-# Keyed by (user_name, product_id)
+# Keyed by (user_id, product_id)
 _state_store: Dict[Tuple[str, str], TemplateAgentState] = defaultdict(lambda: TemplateAgentState(messages=[]))
 
 
-def load_state(user_name: str, product_id: str) -> TemplateAgentState:
+def load_state(user_id: str, product_id: str) -> TemplateAgentState:
     """Retrieve the current state for a given user/product pair."""
-    return _state_store[(user_name, product_id)]
+    return _state_store[(user_id, product_id)]
 
 
-def save_state(user_name: str, product_id: str, state: TemplateAgentState) -> None:
+def save_state(user_id: str, product_id: str, state: TemplateAgentState) -> None:
     """Persist the given state for a user/product pair."""
-    _state_store[(user_name, product_id)] = state
+    _state_store[(user_id, product_id)] = state

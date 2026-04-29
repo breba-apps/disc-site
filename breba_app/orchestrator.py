@@ -36,7 +36,7 @@ class OrchestratorState:
     filestore: InMemoryFileStore
 
 
-# Keyed by (user_name, product_id)
+# Keyed by (user_id, product_id)
 _state_store: dict[tuple[str, str], OrchestratorState] = defaultdict(
     lambda: OrchestratorState(messages=[], filestore=InMemoryFileStore())
 )
@@ -79,7 +79,7 @@ class ExecutiveSummaryGenerationConsumer(Consumer):
         logger.info("Generating executive summary...")
         new_content = await update_executive_summary(messages=event.messages, filestore=event.filestore)
         if new_content:
-            orchestrator_state = load_state(event.user_name, event.product_id)
+            orchestrator_state = load_state(event.user_id, event.product_id)
             _inject_agents_md(orchestrator_state.messages, new_content)
 
 
@@ -90,13 +90,13 @@ class AgentsMdContextConsumer(Consumer):
 
     async def handle(self, ctx: HandleContext, event: CoderCompleted) -> None:
         if event.filestore.file_exists(AGENTS_MD_FILE):
-            orchestrator_state = load_state(event.user_name, event.product_id)
+            orchestrator_state = load_state(event.user_id, event.product_id)
             _inject_agents_md(orchestrator_state.messages, event.filestore.read_text(AGENTS_MD_FILE))
 
 
-async def init_orchestrator(user_name: str, product_id: str) -> OrchestratorState:
+async def init_orchestrator(user_id: str, product_id: str) -> OrchestratorState:
     filestore, _, _ = await asyncio.gather(
-        read_all_files_in_memory(user_name, product_id),
+        read_all_files_in_memory(user_id, product_id),
         event_bus.subscribe(BeforeHandoffToCoder, ExecutiveSummaryGenerationConsumer()),
         event_bus.subscribe(CoderCompleted, AgentsMdContextConsumer()),
     )
@@ -104,24 +104,24 @@ async def init_orchestrator(user_name: str, product_id: str) -> OrchestratorStat
     # Inject AGENTS.md at the start of context for returning users so all agents have project notes immediately
     if filestore.file_exists(AGENTS_MD_FILE):
         _inject_agents_md(state.messages, filestore.read_text(AGENTS_MD_FILE))
-    save_state(user_name, product_id, state)
+    save_state(user_id, product_id, state)
     return state
 
 
-def state_exists(user_name: str, product_id: str) -> bool:
+def state_exists(user_id: str, product_id: str) -> bool:
     """Return True if an active session exists for this user/product pair."""
-    return (user_name, product_id) in _state_store
+    return (user_id, product_id) in _state_store
 
 
-def load_state(user_name: str, product_id: str) -> OrchestratorState:
+def load_state(user_id: str, product_id: str) -> OrchestratorState:
     """Retrieve the current state for a given user/product pair."""
     # TODO: make deep copy of state before passing it out
-    return _state_store[(user_name, product_id)]
+    return _state_store[(user_id, product_id)]
 
 
-def save_state(user_name: str, product_id: str, state: OrchestratorState) -> None:
+def save_state(user_id: str, product_id: str, state: OrchestratorState) -> None:
     """Persist the given state for a user/product pair."""
-    _state_store[(user_name, product_id)] = state
+    _state_store[(user_id, product_id)] = state
 
 
 def _to_baml_messages(messages: list[BrebaMessage]) -> list[LLMMessage]:
@@ -147,11 +147,11 @@ async def baml_stream_and_collect_user_response(stream: BamlStream, stream_recei
 
 
 @agent_task
-async def edit_product(user_name: str, product_id: str, message: BrebaMessage,
+async def edit_product(user_id: str, product_id: str, message: BrebaMessage,
                        coder_completed_callback,
                        stream_to_user_callback):
     # TODO: This duplication can be overcome by memoization, or passing state as param
-    orchestrator_state = load_state(user_name, product_id)
+    orchestrator_state = load_state(user_id, product_id)
     file_store = orchestrator_state.filestore
     update_status("Thinking...")
     orchestrator_state.messages.append(message)
@@ -161,13 +161,13 @@ async def edit_product(user_name: str, product_id: str, message: BrebaMessage,
     final_response = await baml_stream_and_collect_user_response(response, stream_to_user_callback)
     if isinstance(final_response, Coder):
         await event_bus.emit(
-            BeforeHandoffToCoder(user_name=user_name, product_id=product_id,
+            BeforeHandoffToCoder(user_id=user_id, product_id=product_id,
                                  messages=_to_baml_messages(orchestrator_state.messages),
                                  filestore=file_store))
         coder_response = await run_coder_agent(messages=_to_baml_messages(orchestrator_state.messages),
                                                filestore=file_store)
         orchestrator_state.messages.append(BrebaMessage(role="assistant", content=coder_response.content))
-        await coder_completed_callback(user_name, product_id, file_store)
+        await coder_completed_callback(user_id, product_id, file_store)
         update_status("The website is ready to be deployed. Use the 🚀 from the sidebar to deploy your website")
     elif isinstance(final_response, ResponseToUser):
         orchestrator_state.messages.append(BrebaMessage(role="assistant", content=final_response.response_to_user))
@@ -176,15 +176,15 @@ async def edit_product(user_name: str, product_id: str, message: BrebaMessage,
 
 
 @agent_task
-async def start_product(user_name: str, product_id: str, message: BrebaMessage,
+async def start_product(user_id: str, product_id: str, message: BrebaMessage,
                         coder_completed_callback, message_to_user_callback):
-    t_agent = TemplateAgent(user_name, product_id)
+    t_agent = TemplateAgent(user_id, product_id)
     response = await t_agent.build_specification(message, message_to_user_callback)
 
     # We will only proceed to next step, if we have a website specification. Otherwise, wait for additional user input
     if isinstance(response, WebsiteSpecification):
         # TODO: This duplication can be overcome by memoization, or passing state as param, or using a class
-        orchestrator_state = load_state(user_name, product_id)
+        orchestrator_state = load_state(user_id, product_id)
         file_store = orchestrator_state.filestore
         new_spec = response.spec
 
@@ -197,33 +197,33 @@ async def start_product(user_name: str, product_id: str, message: BrebaMessage,
         # Emit before coder so AGENTS.md is written to filestore and persisted alongside the product files.
         # Reuses the same BeforeHandoffToCoder consumer as edit_product.
         await event_bus.emit(
-            BeforeHandoffToCoder(user_name=user_name, product_id=product_id,
+            BeforeHandoffToCoder(user_id=user_id, product_id=product_id,
                                  messages=_to_baml_messages(orchestrator_state.messages),
                                  filestore=file_store))
         update_status("Coder is writing the code...")
         coder_response = await run_coder_agent(messages=_to_baml_messages(orchestrator_state.messages),
                                                filestore=file_store)
         orchestrator_state.messages.append(BrebaMessage(role="assistant", content=coder_response.content))
-        await coder_completed_callback(user_name, product_id, file_store)
+        await coder_completed_callback(user_id, product_id, file_store)
 
         update_status("The website is ready to be deployed. Use the 🚀 from the sidebar to deploy your website")
 
 
-async def handle_user_message(user_name: str, product_id: str, message: BrebaMessage,
+async def handle_user_message(user_id: str, product_id: str, message: BrebaMessage,
                               coder_completed_callback, stream_to_user_callback):
-    orchestrator_state = load_state(user_name, product_id)
+    orchestrator_state = load_state(user_id, product_id)
     file_store = orchestrator_state.filestore
     if file_store.file_exists(INDEX_FILE_NAME):
-        await edit_product(user_name, product_id, message, coder_completed_callback, stream_to_user_callback)
+        await edit_product(user_id, product_id, message, coder_completed_callback, stream_to_user_callback)
     else:
-        await start_product(user_name, product_id, message, coder_completed_callback, stream_to_user_callback)
+        await start_product(user_id, product_id, message, coder_completed_callback, stream_to_user_callback)
 
 
 _PROJECT_ROOT_FILES = {"favicon.ico"}
 
 
 @agent_task
-async def handle_file_upload(user_name: str, product_id: str, message: BrebaMessage,
+async def handle_file_upload(user_id: str, product_id: str, message: BrebaMessage,
                              coder_completed_callback, stream_to_user_callback):
     project_root_elements = []
     image_elements = []
@@ -243,19 +243,19 @@ async def handle_file_upload(user_name: str, product_id: str, message: BrebaMess
         project_root_paths = []
 
         if project_root_elements:
-            orchestrator_state = load_state(user_name, product_id)
+            orchestrator_state = load_state(user_id, product_id)
             for el in project_root_elements:
                 orchestrator_state.filestore.write_bytes(el.name, Path(el.path).read_bytes())
                 project_root_paths.append(el.name)
 
         if non_image_elements:
             non_image_paths = await asyncio.gather(*(
-                upload_file(user_name=user_name, product_id=product_id, file_path=Path(el.path),
+                upload_file(user_id=user_id, product_id=product_id, file_path=Path(el.path),
                             file_name=el.name, description=message.content) for el in non_image_elements))
             uploaded_paths.extend(non_image_paths)
 
         if image_elements:
-            orchestrator_state = load_state(user_name, product_id)
+            orchestrator_state = load_state(user_id, product_id)
             messages_for_intent = _to_baml_messages(orchestrator_state.messages) + [_message_to_baml(message)]
             upload_intent = await b.ShouldUploadToAssets(messages_for_intent)
 
@@ -265,7 +265,7 @@ async def handle_file_upload(user_name: str, product_id: str, message: BrebaMess
 
             if upload_intent.upload:
                 image_paths = await asyncio.gather(*(
-                    upload_file(user_name=user_name, product_id=product_id, file_path=Path(el.path),
+                    upload_file(user_id=user_id, product_id=product_id, file_path=Path(el.path),
                                 file_name=el.name, description=message.content) for el in image_elements))
                 uploaded_paths.extend(image_paths)
 
@@ -286,7 +286,7 @@ async def handle_file_upload(user_name: str, product_id: str, message: BrebaMess
             else:
                 message = BrebaMessage(role="user", content=message.content, elements=forwarded_elements)
 
-            await handle_user_message(user_name, product_id, message,
+            await handle_user_message(user_id, product_id, message,
                                       coder_completed_callback=coder_completed_callback,
                                       stream_to_user_callback=stream_to_user_callback)
         else:
