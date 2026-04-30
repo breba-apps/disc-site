@@ -30,6 +30,7 @@ from breba_app.storage import has_cloud_storage, list_versions, get_active_versi
 from breba_app.template_agent.product_types.landing_page import landing_page_instructions, \
     landing_page_follow_up_questions
 from breba_app.ui_bus import update_products_list, update_versions_list, update_follow_up_questions_list
+from breba_app.builder import build
 from breba_app.website import build_preview
 from controllers.deployment_controller import run_deployment
 from llm_utils import get_product_name
@@ -254,7 +255,9 @@ async def window_message(message: str | dict):
                              update_deployments_list(product))
     elif method == "deploy_github":
         org = message.get("body", {}).get("org")
-        result = await deploy_to_github(user_id, product_id, org=org)
+        source = await read_all_files_in_memory(user_id, product_id)
+        built = build(source)
+        result = await deploy_to_github(user_id, product_id, built, org=org)
         await cl.send_window_message({"method": "github_deploy_status", "body": {
             "success": result.success,
             "pages_url": result.pages_url,
