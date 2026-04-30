@@ -188,8 +188,8 @@ class PreviewFileStore(FileStore):
             raise self._errors[0]
 
 
-def public_file_url(user_name: str, session_id: str, file_name: str) -> str:
-    return f"{Settings.CDN_BASE_URL}/{user_name}/{session_id}/{file_name}"
+def public_file_url(user_id: str, session_id: str, file_name: str) -> str:
+    return f"{Settings.CDN_BASE_URL}/{user_id}/{session_id}/{file_name}"
 
 
 def _join_prefix(base: str) -> str:
@@ -234,25 +234,25 @@ async def _copy_files(source_bucket, target_bucket, files: list[str], target_pre
         raise Exception(f"Failed to copy {failed} objects.")
 
 
-def _user_session_object(user_name: str, session_id: str, relative_path: str, description: str | None = None):
+def _user_session_object(user_id: str, session_id: str, relative_path: str, description: str | None = None):
     s3 = get_s3_resource()
-    key = f"{user_name}/{session_id}/{relative_path}"
+    key = f"{user_id}/{session_id}/{relative_path}"
     obj = s3.Object(Settings.USERS_BUCKET, key)
     if description:
         obj.metadata.update({"description": description})
     return obj
 
 
-def save_image_to_private(user_name: str, session_id: str, image_name: str, content: bytes, description: str = None):
+def save_image_to_private(user_id: str, session_id: str, image_name: str, content: bytes, description: str = None):
     """
     Save image bytes to private bucket. This is used for uploads of images form AI, but is not safe for user-uploaded images.
-    :param user_name: username
+    :param user_id: username
     :param session_id: session id used for locating image files
     :param image_name: image name
     :param content: image content
     :param description: image description, stored as metadata
     """
-    key = f"{user_name}/{session_id}/{ASSETS_PATH}/{image_name}"
+    key = f"{user_id}/{session_id}/{ASSETS_PATH}/{image_name}"
 
     try:
         get_s3_client().put_object(
@@ -268,18 +268,18 @@ def save_image_to_private(user_name: str, session_id: str, image_name: str, cont
         raise
 
 
-def save_image_file_to_private(user_name: str, session_id: str, file_name: str, file_path: str,
+def save_image_file_to_private(user_id: str, session_id: str, file_name: str, file_path: str,
                                description: str = None):
     """
     Save file to private bucket. This is used for uploads of images from user-uploaded images.
-    :param user_name:
+    :param user_id:
     :param session_id:
     :param file_name:
     :param file_path:
     :param description:
     :return:
     """
-    key = f"{user_name}/{session_id}/{ASSETS_PATH}/{file_name}"
+    key = f"{user_id}/{session_id}/{ASSETS_PATH}/{file_name}"
 
     file_size = Path(file_path).stat().st_size
     if file_size > MAX_FILE_SIZE:
@@ -311,47 +311,47 @@ def save_image_file_to_private(user_name: str, session_id: str, file_name: str, 
         raise
 
 
-async def list_versions(user_name: str, session_id: str) -> list[int]:
+async def list_versions(user_id: str, session_id: str) -> list[int]:
     filesystem = VersionedR2FileSystem(
         bucket_name=Settings.USERS_BUCKET,
-        root_prefix=f"{user_name}/{session_id}",
+        root_prefix=f"{user_id}/{session_id}",
         s3_client=get_s3_client(),
     )
     return await asyncio.to_thread(filesystem.list_versions)
 
 
-async def get_active_version(user_name: str, session_id: str) -> int:
+async def get_active_version(user_id: str, session_id: str) -> int:
     filesystem = VersionedR2FileSystem(
         bucket_name=Settings.USERS_BUCKET,
-        root_prefix=f"{user_name}/{session_id}",
+        root_prefix=f"{user_id}/{session_id}",
         s3_client=get_s3_client(),
     )
     return await asyncio.to_thread(filesystem.get_version)
 
 
-async def set_version_active(user_name: str, session_id: str, version: int) -> None:
+async def set_version_active(user_id: str, session_id: str, version: int) -> None:
     filesystem = VersionedR2FileSystem(
         bucket_name=Settings.USERS_BUCKET,
-        root_prefix=f"{user_name}/{session_id}",
+        root_prefix=f"{user_id}/{session_id}",
         s3_client=get_s3_client(),
     )
     await asyncio.to_thread(filesystem.set_version, version)
 
 
-async def save_spec(user_name: str, session_id: str, spec: str) -> None:
+async def save_spec(user_id: str, session_id: str, spec: str) -> None:
     data = spec.encode("utf-8")
-    await save_file_versioned(user_name, session_id, "spec.txt", data, "text/plain")
+    await save_file_versioned(user_id, session_id, "spec.txt", data, "text/plain")
 
 
-async def save_index_html(user_name: str, session_id: str, html: str) -> None:
+async def save_index_html(user_id: str, session_id: str, html: str) -> None:
     data = html.encode("utf-8")
-    await save_file_versioned(user_name, session_id, "index.html", data, "text/html")
+    await save_file_versioned(user_id, session_id, "index.html", data, "text/html")
 
 
-async def save_files(user_name: str, session_id: str, files: list[FileWrite], version: int | None = None):
+async def save_files(user_id: str, session_id: str, files: list[FileWrite], version: int | None = None):
     """
     Save files to user's namespace
-    :param user_name: Used to find user namespace
+    :param user_id: Used to find user namespace
     :param session_id: Used to find product namespace
     :param files: files to write to system
     :param version: version to save files to, if not specified, a new version will be created
@@ -359,16 +359,16 @@ async def save_files(user_name: str, session_id: str, files: list[FileWrite], ve
     """
     filesystem = VersionedR2FileSystem(
         bucket_name=Settings.USERS_BUCKET,
-        root_prefix=f"{user_name}/{session_id}",
+        root_prefix=f"{user_id}/{session_id}",
         s3_client=get_s3_client(),
     )
     return await asyncio.to_thread(filesystem.batch_write, files, version)
 
 
-async def read_all_files_in_memory(user_name: str, session_id: str, version: int | None = None):
+async def read_all_files_in_memory(user_id: str, session_id: str, version: int | None = None):
     filesystem = VersionedR2FileSystem(
         bucket_name=Settings.USERS_BUCKET,
-        root_prefix=f"{user_name}/{session_id}",
+        root_prefix=f"{user_id}/{session_id}",
         s3_client=get_s3_client(),
     )
 
@@ -384,10 +384,10 @@ async def read_all_files_in_memory(user_name: str, session_id: str, version: int
     return InMemoryFileStore(dict(path_file_pairs))
 
 
-async def read_spec_text(user_name: str, session_id: str) -> str | None:
+async def read_spec_text(user_id: str, session_id: str) -> str | None:
     filesystem = VersionedR2FileSystem(
         bucket_name=Settings.USERS_BUCKET,
-        root_prefix=f"{user_name}/{session_id}",
+        root_prefix=f"{user_id}/{session_id}",
         s3_client=get_s3_client(),
     )
     return await filesystem.read_text("spec.txt")
@@ -397,17 +397,17 @@ def get_index_html_path(product_id: str) -> str:
     return f"{get_public_url(product_id)}/index.html"
 
 
-async def read_index_html(user_name: str, session_id: str) -> str:
+async def read_index_html(user_id: str, session_id: str) -> str:
     filesystem = VersionedR2FileSystem(
         bucket_name=Settings.USERS_BUCKET,
-        root_prefix=f"{user_name}/{session_id}",
+        root_prefix=f"{user_id}/{session_id}",
         s3_client=get_s3_client(),
     )
     return await filesystem.read_text("index.html")
 
 
-async def save_file_versioned(user_name: str, session_id: str, file_name: str, content: bytes, content_type: str):
-    root_prefix = f"{user_name}/{session_id}"
+async def save_file_versioned(user_id: str, session_id: str, file_name: str, content: bytes, content_type: str):
+    root_prefix = f"{user_id}/{session_id}"
     filesystem = VersionedR2FileSystem(
         bucket_name=Settings.USERS_BUCKET,
         root_prefix=root_prefix,
@@ -416,7 +416,7 @@ async def save_file_versioned(user_name: str, session_id: str, file_name: str, c
     await asyncio.to_thread(filesystem.write_file, file_name, content, content_type=content_type)
 
 
-async def load_template(user_name: str, session_id: str, template_name: str):
+async def load_template(user_id: str, session_id: str, template_name: str):
     source_prefix = f"templates/{template_name}"
 
     def get_file_write(obj):
@@ -442,7 +442,7 @@ async def load_template(user_name: str, session_id: str, template_name: str):
         raise Exception("No files found for prefix: " + source_prefix)
     files = await asyncio.gather(*tasks)
 
-    root_prefix = f"{user_name}/{session_id}"
+    root_prefix = f"{user_id}/{session_id}"
     filesystem = VersionedR2FileSystem(
         bucket_name=Settings.USERS_BUCKET,
         root_prefix=root_prefix,
@@ -470,8 +470,8 @@ def register_file(parts: list[str], tree: DirTree):
     return current[file_name]
 
 
-def list_s3_structured(user_name: str, session_id: str, path: str = None) -> DirTree:
-    full_prefix = f"{user_name}/{session_id}/"
+def list_s3_structured(user_id: str, session_id: str, path: str = None) -> DirTree:
+    full_prefix = f"{user_id}/{session_id}/"
     if path:
         full_prefix += f"{path}/"
 
@@ -505,9 +505,9 @@ def format_tree(tree: DirTree, indent=0) -> list[str]:
     return lines
 
 
-async def list_file_assets(user_name: str, session_id: str) -> str:
-    dir_tree = await asyncio.to_thread(list_s3_structured, user_name, session_id, ASSETS_PATH)
-    dir_url = public_file_url(user_name, session_id, ASSETS_PATH)
+async def list_file_assets(user_id: str, session_id: str) -> str:
+    dir_tree = await asyncio.to_thread(list_s3_structured, user_id, session_id, ASSETS_PATH)
+    dir_url = public_file_url(user_id, session_id, ASSETS_PATH)
     file_list = "\n".join(format_tree(dir_tree))
     return f"{dir_url} contains the following files:\n{file_list}"
 
@@ -516,11 +516,11 @@ def get_public_url(site_name: str) -> str:
     return f"https://{site_name}.breba.site"
 
 
-async def upload_site(user_name: str, session_id: str, site_name: str):
+async def upload_site(user_id: str, session_id: str, site_name: str):
     """
     Uploads site to google cloud
     Example: upload_site("/Users/yason/breba/disc-site/sites/test-site", "test-site")
-    :param user_name: username
+    :param user_id: username
     :param session_id: session id used for locating site files
     :param site_name: site name where all the files will be stored
     :return: public url of deployed site
@@ -529,7 +529,7 @@ async def upload_site(user_name: str, session_id: str, site_name: str):
     # TODO: when empty dir is being uploaded, should pass back an error message
     filesystem = VersionedR2FileSystem(
         bucket_name=Settings.USERS_BUCKET,
-        root_prefix=f"{user_name}/{session_id}",
+        root_prefix=f"{user_id}/{session_id}",
         s3_client=get_s3_client(),
     )
 
@@ -567,17 +567,17 @@ async def delete_uploaded_sites(site_names: list[str]):
         )
 
 
-async def has_cloud_storage(user_name: str, session_id: str):
+async def has_cloud_storage(user_id: str, session_id: str):
     filesystem = VersionedR2FileSystem(
         bucket_name=Settings.USERS_BUCKET,
-        root_prefix=f"{user_name}/{session_id}",
+        root_prefix=f"{user_id}/{session_id}",
         s3_client=get_s3_client(),
     )
     return filesystem.file_exists(INDEX_FILE_NAME)
 
 
-async def delete_product_files(user_name: str, session_id: str) -> int:
-    prefix = f"{user_name}/{session_id}/"
+async def delete_product_files(user_id: str, session_id: str) -> int:
+    prefix = f"{user_id}/{session_id}/"
     deleted_total = 0
 
     def _bulk_delete_prefix() -> int:
@@ -624,5 +624,5 @@ async def delete_product_files(user_name: str, session_id: str) -> int:
     try:
         return await asyncio.to_thread(_bulk_delete_prefix)
     except Exception as e:
-        logger.error("Failed to delete product %s/%s: %s", user_name, session_id, e)
+        logger.error("Failed to delete product %s/%s: %s", user_id, session_id, e)
         raise

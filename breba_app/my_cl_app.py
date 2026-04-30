@@ -39,13 +39,13 @@ PRODUCT_NAME_PLACEHOLDER = "Unnamed Product"
 
 
 class ProductNameAssignmentConsumer(Consumer):
-    def __init__(self, user_name: str, product_id: str):
-        self.id = f"product_name_assignment_{user_name}_{product_id}"
+    def __init__(self, user_id: str, product_id: str):
+        self.id = f"product_name_assignment_{user_id}_{product_id}"
         super().__init__()
 
     async def handle(self, ctx: HandleContext, event: CoderCompleted) -> None:
         product_name = await get_product_name(event.filestore.read_text(INDEX_FILE_NAME))
-        product = await create_or_update_product_for(event.user_name, event.product_id, product_name)
+        product = await create_or_update_product_for(event.user_id, event.product_id, product_name)
         cl.user_session.set("product_name", product.name)
         await ui_bus.update_product_name(event.product_id, product.name)
         # The first time
@@ -70,9 +70,9 @@ async def ask_user_streaming(token_stream: AsyncIterator[str] | str):
         await msg.send()
 
 
-async def populate_from_cloud_storage(user_name: str, session_id: str):
+async def populate_from_cloud_storage(user_id: str, session_id: str):
     index_path = get_index_html_path(session_id)
-    state, _ = await asyncio.gather(init_orchestrator(user_name, session_id),
+    state, _ = await asyncio.gather(init_orchestrator(user_id, session_id),
                                     ui_bus.init_product_preview(index_path))
     await ui_bus.set_active_product(session_id)
 
@@ -87,13 +87,13 @@ async def populate_from_cloud_storage(user_name: str, session_id: str):
     )
 
 
-async def coder_completed(user_name: str, product_id: str, file_store: InMemoryFileStore):
+async def coder_completed(user_id: str, product_id: str, file_store: InMemoryFileStore):
     """
     This is called when the coder agent is done.
     It will update the UI with the updated files
     It will also persist the files to the cloud storage
 
-    :param user_name: used to identify the session
+    :param user_id: mongo user id used for storage namespacing
     :param product_id: used to identify the session
     :param file_store the in memory file store provided by the coder agent
     """
@@ -103,18 +103,18 @@ async def coder_completed(user_name: str, product_id: str, file_store: InMemoryF
 
     # First we persist the files and preview
     files_to_save: list[FileWrite] = list(file_store.snapshot().values())
-    new_version, _ = await asyncio.gather(save_files(user_name, product_id, files_to_save),
+    new_version, _ = await asyncio.gather(save_files(user_id, product_id, files_to_save),
                                           build_preview(product_id, file_store))
 
     _, _, versions = await asyncio.gather(
         ui_bus.send_specification_to_ui(spec),
         ui_bus.reload_product_preview(),
-        list_versions(user_name, product_id)
+        list_versions(user_id, product_id)
     )
 
     await update_versions_list(versions, new_version)
     # TODO: This is just the first step. This entire callback should go away once event bus is work. That is the purpose of the event bus.
-    await event_bus.emit(CoderCompleted(user_name=user_name, product_id=product_id, filestore=file_store))
+    await event_bus.emit(CoderCompleted(user_id=user_id, product_id=product_id, filestore=file_store))
 
 
 async def update_deployments_list(product: Product):
@@ -150,6 +150,8 @@ async def main():
 
     active_product = None
     if user:
+        user_id = str(user.id)
+        cl.user_session.set("user_id", user_id)
         await cl.send_window_message({"method": "logged_in"})
         # First try to get the active product
         active_product = await Product.find_one(
@@ -165,29 +167,30 @@ async def main():
         asyncio.create_task(update_products_list(user.products))
 
     if active_product:
+        user_id = cl.user_session.get("user_id")
         # Update versions list in the UI
-        versions = await list_versions(user_name, active_product.product_id)
-        active_version = await get_active_version(user_name, active_product.product_id)
+        versions = await list_versions(user_id, active_product.product_id)
+        active_version = await get_active_version(user_id, active_product.product_id)
         asyncio.create_task(update_versions_list(versions, active_version))
 
         # Update deployments list in the UI
         asyncio.create_task(update_deployments_list(active_product))
 
-        has_storage = await has_cloud_storage(user_name, active_product.product_id)
+        has_storage = await has_cloud_storage(user_id, active_product.product_id)
         product_id = active_product.product_id
         cl.user_session.set("product_id", active_product.product_id)
         # Newly created product don't have product_name until the first spec is generated
         product_name = active_product.name
 
         if not product_name or product_name == PRODUCT_NAME_PLACEHOLDER:
-            await event_bus.subscribe(CoderCompleted, ProductNameAssignmentConsumer(user_name, product_id))
+            await event_bus.subscribe(CoderCompleted, ProductNameAssignmentConsumer(user_id, product_id))
         elif product_name:
             cl.user_session.set("product_name", product_name)
 
         if has_storage:
             await cl.Message(
                 content=f"Welcome back, here is your last project: {product_name}.").send()
-            await populate_from_cloud_storage(user_name, product_id)
+            await populate_from_cloud_storage(user_id, product_id)
             await update_follow_up_questions_list(landing_page_follow_up_questions)
             return
         else:
@@ -196,11 +199,12 @@ async def main():
                                      " or you can give me the full specification, and I will have it built.").send()
             return
     else:
+        user_id = cl.user_session.get("user_id")
         # When starting a new project for the first time, set the product_id to session_id
         product_id = cl.user_session.get("id")
         cl.user_session.set("product_id", product_id)
-        await asyncio.gather(create_blank_product_for(user_name, PRODUCT_NAME_PLACEHOLDER, True),
-                             event_bus.subscribe(CoderCompleted, ProductNameAssignmentConsumer(user_name, product_id)),
+        await asyncio.gather(create_blank_product_for(user_id, PRODUCT_NAME_PLACEHOLDER, True),
+                             event_bus.subscribe(CoderCompleted, ProductNameAssignmentConsumer(user_id, product_id)),
                              ui_bus.set_active_product(product_id))
 
     await cl.Message(
@@ -215,23 +219,23 @@ async def window_message(message: str | dict):
         method = message.get("method")
 
     product_id = cl.user_session.get("product_id")
-    user_name = cl.user_session.get("user").identifier
+    user_id = cl.user_session.get("user_id")
 
     if method == "to_builder":
-        await handle_user_message(user_name, product_id,
+        await handle_user_message(user_id, product_id,
                                   BrebaMessage(role="user",
                                                content=message.get("body", "INVALID REQEUST, something went wrong")),
                                   coder_completed_callback=coder_completed,
                                   stream_to_user_callback=ask_user_streaming)
     elif method == "to_generator":
-        await handle_user_message(user_name, product_id,
+        await handle_user_message(user_id, product_id,
                                   BrebaMessage(role="user",
                                                content=message.get("body", "INVALID REQEUST, something went wrong")),
                                   coder_completed_callback=coder_completed,
                                   stream_to_user_callback=ask_user_streaming)
     elif method == "load_template":
         await start_product(
-            user_name, product_id,
+            user_id, product_id,
             BrebaMessage(role="user", content=landing_page_instructions),
             coder_completed,
             ask_user_streaming
@@ -243,14 +247,14 @@ async def window_message(message: str | dict):
         # TODO: optimize this. Product_id should come with the request from the forntend
         #  (in fact this is a bug that product is stored in session).
         product = await Product.find_one(Product.product_id == product_id)
-        message_text = await run_deployment(user_name, product, site_name)
+        message_text = await run_deployment(user_id, product, site_name)
 
         await asyncio.gather(cl.Message(content=message_text).send(),
                              cl.send_window_message({"method": "deploy_status", "body": message_text}),
                              update_deployments_list(product))
     elif method == "deploy_github":
         org = message.get("body", {}).get("org")
-        result = await deploy_to_github(user_name, product_id, org=org)
+        result = await deploy_to_github(user_id, product_id, org=org)
         await cl.send_window_message({"method": "github_deploy_status", "body": {
             "success": result.success,
             "pages_url": result.pages_url,
@@ -268,26 +272,26 @@ async def window_message(message: str | dict):
         else:
             await cl.Message(content=f"GitHub deploy failed: {result.error}").send()
     elif method == "create_new_product":
-        await create_blank_product_for(user_name, PRODUCT_NAME_PLACEHOLDER, True)
+        await create_blank_product_for(user_id, PRODUCT_NAME_PLACEHOLDER, True)
         await cl.send_window_message({"method": "reload_product"})
     elif method == "product_selected":
-        await set_product_active(user_name, message.get("body"))
+        await set_product_active(user_id, message.get("body"))
         await cl.send_window_message({"method": "reload_product"})
     elif method == "delete_product":
-        await delete_product(user_name, message.get("body"))
+        await delete_product(user_id, message.get("body"))
         await cl.send_window_message({"method": "reload_product"})
     elif method == "rename_product":
         body = message.get("body", {})
         product_id_to_rename = body.get("productId")
         new_name = body.get("newName")
-        await rename_product(user_name, product_id_to_rename, new_name)
+        await rename_product(user_id, product_id_to_rename, new_name)
         if product_id == product_id_to_rename:
             cl.user_session.set("product_name", new_name)
     elif method == "select_version":
         version = int(message.get("body"))
-        await set_version_active(user_name, product_id, version)
+        await set_version_active(user_id, product_id, version)
         # After setting version, we need to rebuild preview
-        filestore = await read_all_files_in_memory(user_name, product_id, version)
+        filestore = await read_all_files_in_memory(user_id, product_id, version)
         await build_preview(product_id, filestore)
         # To avoid race condition, we want to wait for the preview to build, before reloading product
         await cl.send_window_message({"method": "reload_product"})
@@ -299,14 +303,14 @@ async def window_message(message: str | dict):
 @cl.on_message
 async def respond(message: Message):
     product_id = cl.user_session.get("product_id")
-    user_name = cl.user_session.get("user").identifier
+    user_id = cl.user_session.get("user_id")
     breba_message = from_cl_message(message)
 
     if len(message.elements) > 0:
-        await handle_file_upload(user_name, product_id, breba_message, coder_completed, ask_user_streaming)
+        await handle_file_upload(user_id, product_id, breba_message, coder_completed, ask_user_streaming)
     else:
         # TODO: need some error handling here similar to the above or better
-        await handle_user_message(user_name, product_id, breba_message, coder_completed_callback=coder_completed,
+        await handle_user_message(user_id, product_id, breba_message, coder_completed_callback=coder_completed,
                                   stream_to_user_callback=ask_user_streaming)
 
 

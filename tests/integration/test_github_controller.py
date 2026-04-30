@@ -120,7 +120,7 @@ async def test_deploy_to_github_first_deploy(mock_user):
         "index.html": FileWrite(path="index.html", content=b"<html><body>Hello GitHub Pages</body></html>"),
     })
     with patch("breba_app.github_controller.read_all_files_in_memory", new=AsyncMock(return_value=fake_store)):
-        result = await deploy_to_github(mock_user.username, product.product_id, org=org)
+        result = await deploy_to_github(str(mock_user.id), product.product_id, org=org)
 
     # Cleanup: delete repo from GitHub
     if result.success and result.repo_url:
@@ -148,7 +148,7 @@ async def test_deploy_to_github_no_github_connected(mock_user):
     )
     await product.save()
 
-    result = await deploy_to_github(mock_user.username, product.product_id)
+    result = await deploy_to_github(str(mock_user.id), product.product_id)
 
     await product.delete()
 
@@ -159,7 +159,7 @@ async def test_deploy_to_github_no_github_connected(mock_user):
 @pytest.mark.asyncio
 async def test_deploy_to_github_product_not_found(mock_user):
     await connect_github_to_user(mock_user.username, "fake_token", "octocat")
-    result = await deploy_to_github(mock_user.username, "nonexistent_product_id", org="acme-corp")
+    result = await deploy_to_github(str(mock_user.id), "nonexistent_product_id", org="acme-corp")
     assert not result.success
     assert "not found" in result.error.lower()
 
@@ -177,7 +177,7 @@ async def test_deploy_to_github_missing_org(mock_user):
     )
     await product.save()
 
-    result = await deploy_to_github(mock_user.username, product.product_id, org=None)
+    result = await deploy_to_github(str(mock_user.id), product.product_id, org=None)
 
     await product.delete()
 

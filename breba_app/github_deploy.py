@@ -114,27 +114,26 @@ def slugify(name: str) -> str:
 
 
 async def create_repo(token: str, org: str, repo_name: str) -> dict:
-    """Create a new public repo under an org.
+    """Create a new public repo under an org, or return the existing one if the name is taken.
     Returns repo info with 'name', 'full_name', 'html_url'.
-    If repo_name is taken, appends -1, -2, ... until a free name is found.
     """
     async with httpx.AsyncClient() as client:
-        candidate = repo_name
-        suffix = 0
-        while True:
-            response = await client.post(
-                f"{GITHUB_API_BASE}/orgs/{org}/repos",
+        response = await client.post(
+            f"{GITHUB_API_BASE}/orgs/{org}/repos",
+            headers=_auth_headers(token),
+            json={"name": repo_name, "private": False, "auto_init": True},
+        )
+        if response.status_code == 201:
+            return response.json()
+        if response.status_code == 422:
+            # Repo already exists — fetch and return it
+            get_response = await client.get(
+                f"{GITHUB_API_BASE}/repos/{org}/{repo_name}",
                 headers=_auth_headers(token),
-                json={"name": candidate, "private": False, "auto_init": True},
             )
-            if response.status_code == 201:
-                return response.json()
-            if response.status_code == 422:
-                # Name conflict — try next suffix
-                suffix += 1
-                candidate = f"{repo_name}-{suffix}"
-                continue
-            response.raise_for_status()
+            get_response.raise_for_status()
+            return get_response.json()
+        response.raise_for_status()
 
 
 async def push_files(

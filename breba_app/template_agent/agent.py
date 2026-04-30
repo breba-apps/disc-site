@@ -23,10 +23,10 @@ async def to_user_stream(streamer: AsyncIterable[StreamQuestion | StreamWebSpeci
 
 
 class TemplateAgent:
-    def __init__(self, user_name: str, product_id: str):
-        self.user_name = user_name
+    def __init__(self, user_id: str, product_id: str):
+        self.user_id = user_id
         self.product_id = product_id
-        self.state = load_state(user_name, product_id)
+        self.state = load_state(user_id, product_id)
 
     async def build_specification(self, message: BrebaMessage,
                                   ask_user_streaming_callback) -> WebsiteSpecification | Question:
@@ -42,7 +42,7 @@ class TemplateAgent:
                 self.state.messages.append(BrebaMessage(role="assistant", content=agent_response.question))
             elif isinstance(agent_response, WebsiteSpecification):
                 self.state.messages.append(BrebaMessage(role="assistant", content=agent_response.spec))
-            save_state(self.user_name, self.product_id, self.state)
+            save_state(self.user_id, self.product_id, self.state)
         else:
             self.state.messages.pop()
             error_message = "Your message exceeds the context limit. Please provide a shorter description."

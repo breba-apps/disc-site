@@ -16,7 +16,7 @@ def get_image_dimensions(path: Path):
     with Image.open(path) as img:
         return img.width, img.height
 
-async def upload_file(user_name: str, product_id: str, file_path: Path, file_name: str, description: str):
+async def upload_file(user_id: str, product_id: str, file_path: Path, file_name: str, description: str):
     async with sem:
         try:
             # get dimensions in a thread (Pillow is blocking)
@@ -27,7 +27,7 @@ async def upload_file(user_name: str, product_id: str, file_path: Path, file_nam
 
         blob_path = await asyncio.to_thread(
             save_image_file_to_private,
-            user_name,
+            user_id,
             product_id,
             file_name,
             file_path.as_posix(),
