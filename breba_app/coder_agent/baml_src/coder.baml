@@ -55,21 +55,59 @@ Reply only in English. ONLY EVER RETURN CODE IN A *SEARCH/REPLACE BLOCK*!
 IMPORTANT: We will use a search and replace algorithm, therefore the search and replace blocks need to have exact text, NOT udiff format!
 </system_reminder>
 "#
-// index.html is the main file, but you can create other files to keep with the best practices.
 template_string  SystemInfo() #"<system_info>
     Keep in mind, this project is a website that follows best practices.
-    This project has all css, html and javascript in a single index.html file (unless user specifies otherwise).
+    The project may use a single index.html file or a multi-file structure with components (see component system rules below).
     We are producing a production ready website that geared towards search engine discoverabilty and core web vitals.
     You must make sure that all changes are clean and complete.
 </system_info>
+"#
+
+template_string ComponentSystem() #"
+<component_system>
+This project can use a Jinja2 template build system. Pages are rendered through Jinja before being served or deployed.
+For multi-file projects, components are reusable Jinja partials. They are NOT standalone pages — they will never be served directly.
+For simple landing pages, you can use a single index.html file.
+
+<rules>
+{% raw %}
+1. Files inside components/ are reusable Jinja partials. They are NOT standalone pages — they will never be served directly.
+2. Include a component in a page with: {% include "components/navbar.html" %}
+3. Components can include other components using the same syntax (composition is fully supported).
+4. Use template inheritance for shared page structure:
+   - Define a base layout in base.html using {% block name %}{% endblock %} placeholders.
+   - Extend it in pages with {% extends "base.html" %} and fill blocks with {% block name %}...{% endblock %}.
+5. Avoid duplicating markup across pages. If an HTML pattern appears on more than one page, extract it into a component. Do not try to turn everything into a component. Some duplication is better than a complex component system.
+6. When the user asks to change something that appears on every page (navbar, footer, etc.), edit the component file — not every page individually.
+7. A component may have associated CSS and JS files alongside it (e.g. components/navbar.css, components/navbar.js). Pages must link to these files explicitly with <link> and <script> tags.
+8. Do not put page-level content (unique hero sections, page body, etc.) inside components/.
+{% endraw %}
+</rules>
+
+<examples>
+{% raw %}
+Correct — reusing a navbar across pages:
+  components/navbar.html  → contains <nav>...</nav>
+  index.html              → {% include "components/navbar.html" %} ...page content...
+  about.html              → {% include "components/navbar.html" %} ...page content...
+
+Correct — base layout:
+  base.html       → <html>...{% include "components/navbar.html" %}{% block content %}{% endblock %}...</html>
+  index.html      → {% extends "base.html" %}{% block content %}<main>Home</main>{% endblock %}
+  about.html      → {% extends "base.html" %}{% block content %}<main>About</main>{% endblock %}
+
+Wrong — duplicating navbar markup in every page instead of using a component.
+{% endraw %}
+</examples>
+</component_system>
 "#
 
 template_string StaticSiteBestPractices() #"
 <static_website_best_practices>
 Always make changes with the best practices in mind
 <website_structure>
-1. Keep HTML, CSS, and JavaScript in a single file.
-2. Use a logical and consistent file and folder structure.
+1. Use a logical and consistent file and folder structure.
+2. Extract repeated HTML into components/ partials. See component system rules.
 </website_structure>
 <html_best_practices>
 1. Use semantic HTML tags
@@ -101,10 +139,13 @@ function DetermineFilesToEdit(messages: LLMMessage[], files: string[]) -> FileLi
 You need to determine files to edit from the list of available files in the project and the file contents.
 Remember that if the project contains separate style files, style changes need to go into the appropriate style file. We will not be making inline style changes. All style changes need to go into appropriate css classes.
 When making changes to website content (not style only), we need to always update sitemap.xml.
+If a change affects a shared element (navbar, footer, etc.), include the component file — not every page that uses it.
 
 Your output will be a list of filepaths.
 
- {{ SystemInfo() }}
+{{ SystemInfo() }}
+
+{{ ComponentSystem() }}
 
   {% for message in messages %}
       {{ _.role(message.role) }} 
@@ -148,6 +189,8 @@ ONLY EVER RETURN CODE IN A *SEARCH/REPLACE BLOCK*!
 {{ SystemInfo() }}
 
 {{ StaticSiteBestPractices() }}
+
+{{ ComponentSystem() }}
 
 {{ SystemReminder() }}
 

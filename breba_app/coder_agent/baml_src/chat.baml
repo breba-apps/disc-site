@@ -7,9 +7,10 @@ class ResponseToUser {
 }
 
 template_string  ChatSystemInfo() #"<system_info>
-    Keep in mind, this project is an html page that follows best practices.
-    Breba app is producing a production ready website that geared towards search engine discoverabilty and core web vitals.
-    The website is static in nature, but can use plugin for dynamic functionality.
+    Keep in mind, this project is a website that follows best practices.
+    Breba app is producing a production ready website geared towards search engine discoverability and core web vitals.
+    The website is static in nature, but can use plugins for dynamic functionality.
+    It may be a single-page site or a multi-page site with shared components (navbar, footer, etc.) reused across pages.
 </system_info>
 
 <limitation>

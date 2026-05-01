@@ -219,6 +219,9 @@ async def window_message(message: str | dict):
     if isinstance(message, dict):
         method = message.get("method")
 
+    # TODO: This needs to go away
+    # TODO: optimize this. Product_id should come with the request from the forntend
+    #  (in fact this is a bug that product is stored in session).
     product_id = cl.user_session.get("product_id")
     user_id = cl.user_session.get("user_id")
 
@@ -244,9 +247,6 @@ async def window_message(message: str | dict):
         await update_follow_up_questions_list(landing_page_follow_up_questions)
     elif method == "deploy":
         site_name = message.get("body")
-        # TODO: This needs to go away
-        # TODO: optimize this. Product_id should come with the request from the forntend
-        #  (in fact this is a bug that product is stored in session).
         product = await Product.find_one(Product.product_id == product_id)
         message_text = await run_deployment(user_id, product, site_name)
 
