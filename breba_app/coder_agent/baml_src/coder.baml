@@ -81,6 +81,8 @@ For simple landing pages, you can use a single index.html file.
 6. When the user asks to change something that appears on every page (navbar, footer, etc.), edit the component file — not every page individually.
 7. A component may have associated CSS and JS files alongside it (e.g. components/navbar.css, components/navbar.js). Pages must link to these files explicitly with <link> and <script> tags.
 8. Do not put page-level content (unique hero sections, page body, etc.) inside components/.
+9. Base template owns the design system shell. base.html must include all shared stylesheets (e.g. Bootstrap CDN, styles.css) and any shared font imports in <head>. It must also provide an empty {% block head_extra %}{% endblock %} in <head> and load any shared scripts at the bottom of <body>, followed by an empty {% block scripts %}{% endblock %} so individual pages can inject page-specific JavaScript. Nothing page-specific belongs in the base — all per-page assets go through those blocks.
+10. Base template blocks must be empty. Never put page-specific content (title, description, canonical URL, OG tags) as default values inside {% block %} tags in base.html. Blocks in the base are slots — pages are responsible for filling them in completely. Group related per-page head content into coarse blocks (e.g. one {% block seo %} for all meta tags, one {% block og %} for all OG tags) rather than creating one block per field.
 {% endraw %}
 </rules>
 
