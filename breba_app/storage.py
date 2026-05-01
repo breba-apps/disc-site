@@ -516,27 +516,36 @@ def get_public_url(site_name: str) -> str:
     return f"https://{site_name}.breba.site"
 
 
-async def upload_site(user_id: str, session_id: str, site_name: str):
+async def upload_site(filestore: FileStore, site_name: str):
     """
-    Uploads site to google cloud
-    Example: upload_site("/Users/yason/breba/disc-site/sites/test-site", "test-site")
-    :param user_id: username
-    :param session_id: session id used for locating site files
+    Uploads a pre-built FileStore to the public R2 bucket under site_name/.
+    Folder structure is preserved.
+    :param filestore: built FileStore (pure HTML, no template syntax)
     :param site_name: site name where all the files will be stored
     :return: public url of deployed site
     """
-    # TODO: convert to async because GCP is a blocking call, we don't want to have to wait
-    # TODO: when empty dir is being uploaded, should pass back an error message
-    filesystem = VersionedR2FileSystem(
-        bucket_name=Settings.USERS_BUCKET,
-        root_prefix=f"{user_id}/{session_id}",
-        s3_client=get_s3_client(),
-    )
+    s3 = get_s3_client()
+    sem = asyncio.Semaphore(16)
 
-    # Need to get full path to files, because we are copying across buckets
-    files = filesystem.list_files(absolute=True)
+    async def _upload_one(path: str):
+        content = filestore.read_bytes(path)
+        content_type, _ = mimetypes.guess_type(path)
+        key = f"{site_name}/{path}"
+        async with sem:
+            await asyncio.to_thread(
+                s3.put_object,
+                Bucket=Settings.PUBLIC_BUCKET,
+                Key=key,
+                Body=content,
+                ContentType=content_type or "application/octet-stream",
+            )
 
-    await _copy_files(get_users_bucket(), get_public_bucket(), files, site_name + "/")
+    tasks = [asyncio.create_task(_upload_one(path)) for path in filestore.list_files()]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    failed = [p for p, r in zip(filestore.list_files(), results) if isinstance(r, Exception)]
+    if failed:
+        raise RuntimeError(f"upload_site: failed to upload {len(failed)} file(s): {', '.join(failed)}")
 
     return get_public_url(site_name)
 
