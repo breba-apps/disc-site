@@ -1,3 +1,4 @@
+import hashlib
 import logging
 
 from jinja2 import BaseLoader, Environment, TemplateNotFound
@@ -36,6 +37,24 @@ def _is_page_html(path: str) -> bool:
     return (lower.endswith(".html") or lower.endswith(".htm")) and not _is_component_html(path)
 
 
+def _make_assets_func(filestore: FileStore):
+    """Return a Jinja2 global `assets(path)` that appends ?v=<content-hash> to local asset URLs."""
+    _cache: dict[str, str] = {}
+
+    def assets(path: str) -> str:
+        if path not in _cache:
+            clean = path.lstrip("/")
+            if filestore.file_exists(clean):
+                content = filestore.read_bytes(clean)
+                h = hashlib.md5(content).hexdigest()[:8]
+            else:
+                h = "0"
+            _cache[path] = f"{path}?v={h}"
+        return _cache[path]
+
+    return assets
+
+
 def build(filestore: FileStore) -> InMemoryFileStore:
     """Render Jinja templates in *filestore* and return a new filestore of pure HTML/CSS/JS.
 
@@ -46,6 +65,7 @@ def build(filestore: FileStore) -> InMemoryFileStore:
     - Internal meta-files (spec.txt, AGENTS.md) → excluded
     """
     env = Environment(loader=FileStoreLoader(filestore), autoescape=False)
+    env.globals["assets"] = _make_assets_func(filestore)
     result = InMemoryFileStore()
 
     for path in filestore.list_files():

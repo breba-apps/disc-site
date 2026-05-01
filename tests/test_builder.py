@@ -113,6 +113,31 @@ def test_subdirectory_page_can_include_component():
     assert built_text(fs, "about/index.html") == "<nav>Nav</nav><p>About</p>"
 
 
+# ── assets() cache-busting ───────────────────────────────────────────────────
+
+def test_assets_appends_hash():
+    fs = store({
+        "index.html": '{{ assets("/styles.css") }}',
+        "styles.css": "body { color: red; }",
+    })
+    result = built_text(fs, "index.html")
+    assert result.startswith("/styles.css?v=")
+    assert len(result) == len("/styles.css?v=") + 8  # 8-char hex hash
+
+
+def test_assets_hash_changes_when_content_changes():
+    css_v1 = "body { color: red; }"
+    css_v2 = "body { color: blue; }"
+    result_v1 = built_text(store({"index.html": '{{ assets("/styles.css") }}', "styles.css": css_v1}), "index.html")
+    result_v2 = built_text(store({"index.html": '{{ assets("/styles.css") }}', "styles.css": css_v2}), "index.html")
+    assert result_v1 != result_v2
+
+
+def test_assets_missing_file_returns_v0():
+    fs = store({"index.html": '{{ assets("/missing.css") }}'})
+    assert built_text(fs, "index.html") == "/missing.css?v=0"
+
+
 # ── error handling ────────────────────────────────────────────────────────────
 
 def test_missing_include_raises():
