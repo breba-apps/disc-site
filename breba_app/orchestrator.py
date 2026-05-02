@@ -146,26 +146,35 @@ async def baml_stream_and_collect_user_response(stream: BamlStream, stream_recei
     return await stream.get_final_response()
 
 
+def _current_page_messages(page: str) -> list[LLMMessage]:
+    return [LLMMessage(role="user", content=f"The user is currently viewing: {page}\n"),
+            LLMMessage(role="assistant", content="I understand the the user is making comments while view this page, but the comments may be about any part of the product, not just the current page.")]
+
+
 @agent_task
 async def edit_product(user_id: str, product_id: str, message: BrebaMessage,
                        coder_completed_callback,
-                       stream_to_user_callback):
+                       stream_to_user_callback,
+                       current_page: str | None = None):
     # TODO: This duplication can be overcome by memoization, or passing state as param
     orchestrator_state = load_state(user_id, product_id)
     file_store = orchestrator_state.filestore
     update_status("Thinking...")
     orchestrator_state.messages.append(message)
-    response = await stream_user_response_or_coder(messages=_to_baml_messages(orchestrator_state.messages),
-                                                   filestore=file_store)
+
+    baml_messages = _to_baml_messages(orchestrator_state.messages)
+    if current_page:
+        baml_messages = _current_page_messages(current_page) + baml_messages
+
+    response = await stream_user_response_or_coder(messages=baml_messages, filestore=file_store)
 
     final_response = await baml_stream_and_collect_user_response(response, stream_to_user_callback)
     if isinstance(final_response, Coder):
         await event_bus.emit(
             BeforeHandoffToCoder(user_id=user_id, product_id=product_id,
-                                 messages=_to_baml_messages(orchestrator_state.messages),
+                                 messages=baml_messages,
                                  filestore=file_store))
-        coder_response = await run_coder_agent(messages=_to_baml_messages(orchestrator_state.messages),
-                                               filestore=file_store)
+        coder_response = await run_coder_agent(messages=baml_messages, filestore=file_store)
         orchestrator_state.messages.append(BrebaMessage(role="assistant", content=coder_response.content))
         await coder_completed_callback(user_id, product_id, file_store)
         update_status("The website is ready to be deployed. Use the 🚀 from the sidebar to deploy your website")
@@ -210,11 +219,13 @@ async def start_product(user_id: str, product_id: str, message: BrebaMessage,
 
 
 async def handle_user_message(user_id: str, product_id: str, message: BrebaMessage,
-                              coder_completed_callback, stream_to_user_callback):
+                              coder_completed_callback, stream_to_user_callback,
+                              current_page: str | None = None):
     orchestrator_state = load_state(user_id, product_id)
     file_store = orchestrator_state.filestore
     if file_store.file_exists(INDEX_FILE_NAME):
-        await edit_product(user_id, product_id, message, coder_completed_callback, stream_to_user_callback)
+        await edit_product(user_id, product_id, message, coder_completed_callback, stream_to_user_callback,
+                           current_page=current_page)
     else:
         await start_product(user_id, product_id, message, coder_completed_callback, stream_to_user_callback)
 

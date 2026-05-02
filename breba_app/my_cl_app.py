@@ -225,18 +225,24 @@ async def window_message(message: str | dict):
     product_id = cl.user_session.get("product_id")
     user_id = cl.user_session.get("user_id")
 
-    if method == "to_builder":
+    if method == "set_active_page":
+        cl.user_session.set("current_page", message.get("body"))
+    elif method == "to_builder":
+        current_page = cl.user_session.get("current_page")
         await handle_user_message(user_id, product_id,
                                   BrebaMessage(role="user",
                                                content=message.get("body", "INVALID REQEUST, something went wrong")),
                                   coder_completed_callback=coder_completed,
-                                  stream_to_user_callback=ask_user_streaming)
+                                  stream_to_user_callback=ask_user_streaming,
+                                  current_page=current_page)
     elif method == "to_generator":
+        current_page = cl.user_session.get("current_page")
         await handle_user_message(user_id, product_id,
                                   BrebaMessage(role="user",
                                                content=message.get("body", "INVALID REQEUST, something went wrong")),
                                   coder_completed_callback=coder_completed,
-                                  stream_to_user_callback=ask_user_streaming)
+                                  stream_to_user_callback=ask_user_streaming,
+                                  current_page=current_page)
     elif method == "load_template":
         await start_product(
             user_id, product_id,
@@ -313,8 +319,9 @@ async def respond(message: Message):
         await handle_file_upload(user_id, product_id, breba_message, coder_completed, ask_user_streaming)
     else:
         # TODO: need some error handling here similar to the above or better
+        current_page = cl.user_session.get("current_page")
         await handle_user_message(user_id, product_id, breba_message, coder_completed_callback=coder_completed,
-                                  stream_to_user_callback=ask_user_streaming)
+                                  stream_to_user_callback=ask_user_streaming, current_page=current_page)
 
 
 @cl.password_auth_callback
