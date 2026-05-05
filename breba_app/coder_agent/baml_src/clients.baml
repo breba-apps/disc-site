@@ -12,7 +12,7 @@ client<llm> Gpt54Low {
       verbosity: "low"
     }
     http {
-      request_timeout_ms 60000  // GPT-5.4 needs more time
+      request_timeout_ms 300000  // GPT-5.4 needs more time
     }
   }
 }
