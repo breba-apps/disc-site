@@ -98,7 +98,7 @@ async def read_files_to_edit(*, original_context: list[LLMMessage], filestore: F
         try:
             files_response = await b.DetermineFilesToEdit(safe_context, files_list)
         except BamlTimeoutError as e:
-            logger.exception("DetermineFilesToEdit timed out [%s]: %s", e.timeout_type, e)
+            logger.exception("DetermineFilesToEdit timed out: %s", e)
             raise
         except BamlClientError as e:
             logger.exception("DetermineFilesToEdit client error: %s", e)
@@ -134,7 +134,7 @@ async def update_executive_summary(*, messages: list[LLMMessage], filestore: Fil
     try:
         agents_md = await b.CoderNotes(messages, current, index_html)
     except BamlTimeoutError as e:
-        logger.exception("CoderNotes timed out [%s]: %s", e.timeout_type, e)
+        logger.exception("CoderNotes timed out: %s", e)
         raise
     except BamlClientError as e:
         logger.exception("CoderNotes client error: %s", e)
@@ -178,7 +178,7 @@ async def run_coder_agent(*, messages: list[LLMMessage], filestore: FileStore) -
             # break on success
             break
         except BamlTimeoutError as e:
-            logger.exception("GenerateSearchReplaceBlocks timed out [%s]: %s", e.timeout_type, e)
+            logger.exception("GenerateSearchReplaceBlocks timed out: %s", e)
             raise
         except BamlClientError as e:
             logger.exception("GenerateSearchReplaceBlocks client error: %s", e)
