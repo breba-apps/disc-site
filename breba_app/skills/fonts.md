@@ -17,16 +17,17 @@ Fonts should be loaded after css especially bootstrap. Loading CSS first prevent
 ## Custom Fonts layout shift prevention
 <custom_fonts>
 Use minimal custom fonts above the fold.
-To make sure animations and everything layout shifts are not visible, you can use javascript to run animations after font is loaded.
+To make sure animations and other layout shifts are not visible, you can use javascript to run animations after font is loaded.
 document.fonts.load('600 1em Poppins').then(() => {
   document.documentElement.classList.add('fonts-ready');
 });
 </custom_fonts>
 
 <render_blocking_requests>
-Make sure to user preconnect and preload where appropriate (too many is not helpful).
+Make sure to use preconnect and preload where appropriate (too many is not helpful).
 Only the main css file like bootstrap.css or styles.css(names could vary) must load while blocking rendering.
 All fonts must be loaded in a non-blocking fashion.
+Preconnects should appear before downloading the render block css for the page.
 </render_blocking_requests>
 
 <navbar_sizing_consistency>
