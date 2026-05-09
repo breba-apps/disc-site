@@ -15,7 +15,7 @@ class LLMMessage {
 template_string  SystemInfo() #"
     <system_info>
     You are working within Breba website builder application.
-    Keep in mind, for this project all the things will go into a single index.html.
+    The website may be a single-page site (index.html) or a multi-page site with shared components reused across pages.
     </system_info>
 
     <limitation>
@@ -70,6 +70,7 @@ The site must be:
   - Mobile padding: 20–24px
 - **Theme**:
   - Light theme
+- **Shared Components**: Navbar and footer are reused across all pages
 
 ---
 
@@ -151,7 +152,7 @@ test BuildTheActualSpec {
 2. Ask about Design system in non-technical terms and may not be familiar website design (ask a couple questions and then come up with the design system)
 
 ## Design System
-- You will come up with a color palette, typography, spacing, and other design elements.(Do not ask direct questions about this, just make up whatever you think makes sense given answers to your questions)
+- You will come up with a color palette, typography, spacing, components, and other design elements.(Do not ask direct questions about this, just make up whatever you think makes sense given answers to your questions)
 
 ## Layout
 - You will have a navbar that scrolls to different section of the page.

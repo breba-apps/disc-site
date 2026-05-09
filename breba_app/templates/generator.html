@@ -364,6 +364,11 @@
         } else if (event.data.method === "preview_mousedown") {
             console.log("Preview Mouse down");
             popupMousedownHandler();
+        } else if (event.data.method === "preview_page_changed") {
+            const chat = document.getElementById('chainlit');
+            if (chat) {
+                chat.contentWindow.postMessage({method: "set_active_page", body: event.data.body}, '*');
+            }
         }
     });
 

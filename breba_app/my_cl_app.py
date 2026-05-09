@@ -30,6 +30,7 @@ from breba_app.storage import has_cloud_storage, list_versions, get_active_versi
 from breba_app.template_agent.product_types.landing_page import landing_page_instructions, \
     landing_page_follow_up_questions
 from breba_app.ui_bus import update_products_list, update_versions_list, update_follow_up_questions_list
+from breba_app.builder import build
 from breba_app.website import build_preview
 from controllers.deployment_controller import run_deployment
 from llm_utils import get_product_name
@@ -218,21 +219,30 @@ async def window_message(message: str | dict):
     if isinstance(message, dict):
         method = message.get("method")
 
+    # TODO: This needs to go away
+    # TODO: optimize this. Product_id should come with the request from the forntend
+    #  (in fact this is a bug that product is stored in session).
     product_id = cl.user_session.get("product_id")
     user_id = cl.user_session.get("user_id")
 
-    if method == "to_builder":
+    if method == "set_active_page":
+        cl.user_session.set("current_page", message.get("body"))
+    elif method == "to_builder":
+        current_page = cl.user_session.get("current_page")
         await handle_user_message(user_id, product_id,
                                   BrebaMessage(role="user",
                                                content=message.get("body", "INVALID REQEUST, something went wrong")),
                                   coder_completed_callback=coder_completed,
-                                  stream_to_user_callback=ask_user_streaming)
+                                  stream_to_user_callback=ask_user_streaming,
+                                  current_page=current_page)
     elif method == "to_generator":
+        current_page = cl.user_session.get("current_page")
         await handle_user_message(user_id, product_id,
                                   BrebaMessage(role="user",
                                                content=message.get("body", "INVALID REQEUST, something went wrong")),
                                   coder_completed_callback=coder_completed,
-                                  stream_to_user_callback=ask_user_streaming)
+                                  stream_to_user_callback=ask_user_streaming,
+                                  current_page=current_page)
     elif method == "load_template":
         await start_product(
             user_id, product_id,
@@ -243,9 +253,6 @@ async def window_message(message: str | dict):
         await update_follow_up_questions_list(landing_page_follow_up_questions)
     elif method == "deploy":
         site_name = message.get("body")
-        # TODO: This needs to go away
-        # TODO: optimize this. Product_id should come with the request from the forntend
-        #  (in fact this is a bug that product is stored in session).
         product = await Product.find_one(Product.product_id == product_id)
         message_text = await run_deployment(user_id, product, site_name)
 
@@ -254,7 +261,9 @@ async def window_message(message: str | dict):
                              update_deployments_list(product))
     elif method == "deploy_github":
         org = message.get("body", {}).get("org")
-        result = await deploy_to_github(user_id, product_id, org=org)
+        source = await read_all_files_in_memory(user_id, product_id)
+        built = build(source)
+        result = await deploy_to_github(user_id, product_id, built, org=org)
         await cl.send_window_message({"method": "github_deploy_status", "body": {
             "success": result.success,
             "pages_url": result.pages_url,
@@ -310,8 +319,9 @@ async def respond(message: Message):
         await handle_file_upload(user_id, product_id, breba_message, coder_completed, ask_user_streaming)
     else:
         # TODO: need some error handling here similar to the above or better
+        current_page = cl.user_session.get("current_page")
         await handle_user_message(user_id, product_id, breba_message, coder_completed_callback=coder_completed,
-                                  stream_to_user_callback=ask_user_streaming)
+                                  stream_to_user_callback=ask_user_streaming, current_page=current_page)
 
 
 @cl.password_auth_callback

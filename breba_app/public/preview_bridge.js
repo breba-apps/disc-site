@@ -3,6 +3,12 @@ const doc = window.document;
 
 console.log(doc)
 
+// Notify parent (generator.html) of the current page path on every load
+window.parent.postMessage({
+    method: "preview_page_changed",
+    body: window.location.pathname.replace(/^\//, '')
+}, "*");
+
 doc.addEventListener('mouseup', () => {
     const sel = win.getSelection().toString().trim();
     if (!sel) return;

@@ -15,9 +15,9 @@ from breba_app.github_deploy import (
 )
 from breba_app.crypto import decrypt_token, encrypt_token
 from breba_app.github_oauth import exchange_code_for_token, get_github_orgs, get_github_username, verify_state
+from breba_app.filesystem import FileStore
 from breba_app.models.product import Product
 from breba_app.models.user import User
-from breba_app.storage import read_all_files_in_memory
 
 logger = logging.getLogger(__name__)
 
@@ -105,9 +105,10 @@ async def list_github_orgs(username: str) -> list[str] | None:
         raise
 
 
-async def deploy_to_github(user_id: str, product_id: str, org: str | None = None) -> GitHubDeployResult:
-    """Deploy product files to GitHub Pages under an org.
+async def deploy_to_github(user_id: str, product_id: str, filestore: FileStore, org: str | None = None) -> GitHubDeployResult:
+    """Deploy files to GitHub Pages under an org.
 
+    The caller is responsible for providing a fully-built *filestore* (pure HTML, no template syntax).
     On first deploy, `org` is required. It is stored on the product and reused on re-deploys.
     """
     from beanie import PydanticObjectId
@@ -122,8 +123,7 @@ async def deploy_to_github(user_id: str, product_id: str, org: str | None = None
     token = decrypt_token(user.github_access_token)
 
     try:
-        file_store = await read_all_files_in_memory(user_id, product_id)
-        files = {path: fw.content for path, fw in file_store._files.items()}
+        files = {path: fw.content for path, fw in filestore._files.items()}
 
         if product.github_repo:
             # Re-deploy: push updated files to existing repo

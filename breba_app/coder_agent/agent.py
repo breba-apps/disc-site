@@ -4,6 +4,7 @@ import logging
 from typing import AsyncIterable
 
 from baml_py import BamlStream
+from baml_py.errors import BamlTimeoutError, BamlClientError
 
 from breba_app.coder_agent.baml_client.async_client import b
 from breba_app.coder_agent.baml_client.types import LLMMessage
@@ -94,7 +95,14 @@ async def read_files_to_edit(*, original_context: list[LLMMessage], filestore: F
 
     seen_files = set()
     for _ in range(max_depth):
-        files_response = await b.DetermineFilesToEdit(safe_context, files_list)
+        try:
+            files_response = await b.DetermineFilesToEdit(safe_context, files_list)
+        except BamlTimeoutError as e:
+            logger.exception("DetermineFilesToEdit timed out: %s", e)
+            raise
+        except BamlClientError as e:
+            logger.exception("DetermineFilesToEdit client error: %s", e)
+            raise
 
         if not files_response.files:
             # There are no new files to read for this task
@@ -123,7 +131,14 @@ async def read_files_to_edit(*, original_context: list[LLMMessage], filestore: F
 async def update_executive_summary(*, messages: list[LLMMessage], filestore: FileStore) -> str | None:
     current = filestore.read_text(AGENTS_MD_FILE) if filestore.file_exists(AGENTS_MD_FILE) else ""
     index_html = filestore.read_text(INDEX_FILE_NAME) if filestore.file_exists(INDEX_FILE_NAME) else ""
-    agents_md = await b.CoderNotes(messages, current, index_html)
+    try:
+        agents_md = await b.CoderNotes(messages, current, index_html)
+    except BamlTimeoutError as e:
+        logger.exception("CoderNotes timed out: %s", e)
+        raise
+    except BamlClientError as e:
+        logger.exception("CoderNotes client error: %s", e)
+        raise
     if agents_md and isinstance(agents_md, str) and agents_md.strip().lower() != "noop":
         filestore.write_text(AGENTS_MD_FILE, agents_md)
         return agents_md
@@ -162,9 +177,15 @@ async def run_coder_agent(*, messages: list[LLMMessage], filestore: FileStore) -
             edits = apply_search_replace_many(edit_store, search_replace_text)
             # break on success
             break
+        except BamlTimeoutError as e:
+            logger.exception("GenerateSearchReplaceBlocks timed out: %s", e)
+            raise
+        except BamlClientError as e:
+            logger.exception("GenerateSearchReplaceBlocks client error: %s", e)
+            raise
         except ApplyEditsError as e:
             # Atomic behavior: reset scratchpad and do not write anything on failure
-            logging.exception(f"Failed to apply code changes ({attempt} of {MAX_RETRIES})")
+            logger.exception(f"Failed to apply code changes ({attempt} of {MAX_RETRIES})")
             edit_store = InMemoryFileStore(before)
 
             if attempt == MAX_RETRIES - 1:

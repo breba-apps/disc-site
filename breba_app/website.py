@@ -3,6 +3,7 @@ import re
 from datetime import timezone, datetime
 from html.parser import HTMLParser
 
+from breba_app.builder import build
 from breba_app.filesystem import FileStore
 from breba_app.paths import templates
 from breba_app.storage import PreviewFileStore
@@ -45,7 +46,7 @@ Sitemap: {canonical_url}/sitemap.xml"""
 
 
 _SCRIPT_TAG = (
-    '<script src="https://cdn.breba.app/breba/preview_bridge.js"></script>'
+    '<script src="https://cdn.breba.app/breba/preview_bridge.js?v=2"></script>'
 )
 
 # Case-insensitive patterns. We keep them simple but robust enough for typical HTML.
@@ -72,20 +73,21 @@ def _inject_preview_bridge(html: str) -> str:
 
 async def build_preview(product_id: str, filestore: FileStore) -> None:
     """
-    Copies ALL files to the preview bucket prefix {product_id}/.
+    Builds Jinja templates, then copies all files to the preview bucket prefix {product_id}/.
     Injects preview bridge into any HTML file that contains a <body> tag.
     """
+    built = build(filestore)
     target_filestore = PreviewFileStore(product_id=product_id)
     failed = []
-    for path in filestore.list_files():
+    for path in built.list_files():
         try:
             lower = path.lower()
             if lower.endswith(".html") or lower.endswith(".htm"):
-                file_text = filestore.read_text(path)
+                file_text = built.read_text(path)
                 modified_html = _inject_preview_bridge(file_text)
                 target_filestore.write_text(path, modified_html)
             else:
-                target_filestore.write_bytes(path, filestore.read_bytes(path))
+                target_filestore.write_bytes(path, built.read_bytes(path))
         except Exception:
             logger.exception("Failed to copy %r to preview; skipping", path)
             failed.append(path)

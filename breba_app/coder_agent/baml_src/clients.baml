@@ -11,6 +11,9 @@ client<llm> Gpt54Low {
     text {
       verbosity: "low"
     }
+    http {
+      request_timeout_ms 300000  // GPT-5.4 needs more time
+    }
   }
 }
 
