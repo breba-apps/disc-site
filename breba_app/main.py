@@ -2,6 +2,7 @@ import asyncio
 import io
 import logging
 import os
+import uuid
 import zipfile
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -21,6 +22,8 @@ from starlette.staticfiles import StaticFiles
 import breba_app.github_oauth as github_oauth
 from breba_app.auth import change_password
 from breba_app.config import init_db, load_env
+from breba_app.context import bind_context
+from breba_app.logging_config import setup_logging
 from breba_app.github_controller import enforce_github_https, get_github_connection_status, handle_github_callback, \
     list_github_orgs, set_github_custom_domain
 from breba_app.models.product import Product
@@ -30,10 +33,10 @@ from breba_app.paths import app_path, templates
 from breba_app.storage import read_all_files_in_memory, save_files
 from breba_app.website import build_preview
 
-logging.basicConfig(level=logging.INFO, )
-logger = logging.getLogger(__name__)
-
 load_env()
+
+setup_logging(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8080"))
@@ -53,6 +56,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def log_context_middleware(request: Request, call_next):
+    request_id = request.headers.get("x-request-id") or uuid.uuid4().hex
+    with bind_context(request_id=request_id):
+        response = await call_next(request)
+    response.headers["X-Request-ID"] = request_id
+    return response
 
 # Compute static asset version based on max mtime of public files on startup
 public_dir = app_path / "public"

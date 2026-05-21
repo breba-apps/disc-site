@@ -1,25 +1,28 @@
 import asyncio
 import json
 import logging
+import uuid
 from typing import AsyncIterator
 
 import chainlit as cl
 import httpx
-from beanie import SortDirection, PydanticObjectId
+from beanie import SortDirection
 from bson import DBRef
 from chainlit import Message
 
 import breba_app.ui_bus as ui_bus
 from auth import verify_password
+from breba_app.builder import build
 from breba_app.chainlit_bridge import from_cl_message
-from breba_app.llm_utils import BrebaMessage
 from breba_app.config import SPEC_FILE_NAME, INDEX_FILE_NAME
 from breba_app.controllers.product_controller import delete_product, rename_product
 from breba_app.events.bus import HandleContext, Consumer, event_bus
-from breba_app.github_controller import deploy_to_github
-from breba_app.github_deploy import get_pages_url
 from breba_app.events.coder_completed import CoderCompleted
 from breba_app.filesystem import InMemoryFileStore, FileWrite
+from breba_app.github_controller import deploy_to_github
+from breba_app.github_deploy import get_pages_url
+from breba_app.llm_utils import BrebaMessage
+from breba_app.context import init_context
 from breba_app.models.deployment import Deployment
 from breba_app.models.product import Product, create_or_update_product_for, create_blank_product_for, set_product_active
 from breba_app.models.user import User
@@ -30,11 +33,12 @@ from breba_app.storage import has_cloud_storage, list_versions, get_active_versi
 from breba_app.template_agent.product_types.landing_page import landing_page_instructions, \
     landing_page_follow_up_questions
 from breba_app.ui_bus import update_products_list, update_versions_list, update_follow_up_questions_list
-from breba_app.builder import build
 from breba_app.website import build_preview
 from controllers.deployment_controller import run_deployment
 from llm_utils import get_product_name
 from storage import get_public_url
+
+logger = logging.getLogger(__name__)
 
 PRODUCT_NAME_PLACEHOLDER = "Unnamed Product"
 
@@ -123,7 +127,8 @@ async def update_deployments_list(product: Product):
         [("deployed_at", SortDirection.DESCENDING)]).to_list()
 
     deployments_list = [{"id": str(deployment.id), "deployment_id": deployment.deployment_id,
-                         "url": get_public_url(deployment.deployment_id), "type": "breba"} for deployment in deployments]
+                         "url": get_public_url(deployment.deployment_id), "type": "breba"} for deployment in
+                        deployments]
 
     if product.github_repo:
         org, repo_name = product.github_repo.split("/", 1)
@@ -142,75 +147,83 @@ async def update_deployments_list(product: Product):
         "product_id": product.product_id,
     }})
 
+async def _discover_user_and_product() -> tuple[User | None, Product | None]:
+    user_name = cl.user_session.get("user").identifier
+    user = await User.find_one(User.username == user_name, fetch_links=True)
+    if not user:
+        return None, None
+
+    active_product = await Product.find_one(Product.user.id == user.id, Product.active == True)
+    if not active_product:
+        active_product = await Product.find(
+            Product.user.id == user.id
+        ).sort([("_id", SortDirection.DESCENDING)]).first_or_none()
+
+    return user, active_product
+
+
+async def restore_product(user_id: str, active_product: Product) -> None:
+    product_id = active_product.product_id
+
+    versions = await list_versions(user_id, product_id)
+    active_version = await get_active_version(user_id, product_id)
+    asyncio.create_task(update_versions_list(versions, active_version))
+    asyncio.create_task(update_deployments_list(active_product))
+
+    has_storage = await has_cloud_storage(user_id, product_id)
+    product_name = active_product.name
+
+    if not product_name or product_name == PRODUCT_NAME_PLACEHOLDER:
+        await event_bus.subscribe(CoderCompleted, ProductNameAssignmentConsumer(user_id, product_id))
+    elif product_name:
+        cl.user_session.set("product_name", product_name)
+
+    if has_storage:
+        await cl.Message(content=f"Welcome back, here is your last project: {product_name}.").send()
+        await populate_from_cloud_storage(user_id, product_id)
+        await update_follow_up_questions_list(landing_page_follow_up_questions)
+    else:
+        await cl.Message(
+            content="Let's build you new product. We can build it together one step at a time,"
+                    " or you can give me the full specification, and I will have it built."
+        ).send()
+
+
+async def load_new_product(user_id: str | None, product_id: str) -> None:
+    if user_id:
+        await asyncio.gather(
+            create_blank_product_for(user_id, PRODUCT_NAME_PLACEHOLDER, True),
+            event_bus.subscribe(CoderCompleted, ProductNameAssignmentConsumer(user_id, product_id)),
+            ui_bus.set_active_product(product_id),
+        )
+    await cl.Message(
+        content="Hello, I'm here to assist you with building your website. We can build it together one step at a time,"
+                " or you can give me the full specification, and I will have it built."
+    ).send()
+
 
 @cl.on_chat_start
 async def main():
-    user_name = cl.user_session.get("user").identifier
+    # Phase 1: discover
+    user, active_product = await _discover_user_and_product()
 
-    user = await User.find_one(User.username == user_name, fetch_links=True)
-
-    active_product = None
-    if user:
-        user_id = str(user.id)
+    # Phase 2: initialize context (one-shot, no merging)
+    user_id = str(user.id) if user else None
+    product_id = active_product.product_id if active_product else cl.user_session.get("id")
+    init_context(request_id=uuid.uuid4().hex, user_id=user_id, product_id=product_id)
+    if user_id:
         cl.user_session.set("user_id", user_id)
+    cl.user_session.set("product_id", product_id)
+
+    # Phase 3: dispatch
+    if user:
         await cl.send_window_message({"method": "logged_in"})
-        # First try to get the active product
-        active_product = await Product.find_one(
-            Product.user.id == user.id, Product.active == True
-        )
-
-        # Fallback to most recently created product
-        if not active_product:
-            active_product = await Product.find(
-                Product.user.id == user.id
-            ).sort([("_id", SortDirection.DESCENDING)]).first_or_none()
-
         asyncio.create_task(update_products_list(user.products))
 
     if active_product:
-        user_id = cl.user_session.get("user_id")
-        # Update versions list in the UI
-        versions = await list_versions(user_id, active_product.product_id)
-        active_version = await get_active_version(user_id, active_product.product_id)
-        asyncio.create_task(update_versions_list(versions, active_version))
-
-        # Update deployments list in the UI
-        asyncio.create_task(update_deployments_list(active_product))
-
-        has_storage = await has_cloud_storage(user_id, active_product.product_id)
-        product_id = active_product.product_id
-        cl.user_session.set("product_id", active_product.product_id)
-        # Newly created product don't have product_name until the first spec is generated
-        product_name = active_product.name
-
-        if not product_name or product_name == PRODUCT_NAME_PLACEHOLDER:
-            await event_bus.subscribe(CoderCompleted, ProductNameAssignmentConsumer(user_id, product_id))
-        elif product_name:
-            cl.user_session.set("product_name", product_name)
-
-        if has_storage:
-            await cl.Message(
-                content=f"Welcome back, here is your last project: {product_name}.").send()
-            await populate_from_cloud_storage(user_id, product_id)
-            await update_follow_up_questions_list(landing_page_follow_up_questions)
-            return
-        else:
-            # We are starting a new project
-            await cl.Message(content="Let's build you new product. We can build it together one step at a time,"
-                                     " or you can give me the full specification, and I will have it built.").send()
-            return
+        await restore_product(user_id, active_product)
     else:
-        user_id = cl.user_session.get("user_id")
-        # When starting a new project for the first time, set the product_id to session_id
-        product_id = cl.user_session.get("id")
-        cl.user_session.set("product_id", product_id)
-        await asyncio.gather(create_blank_product_for(user_id, PRODUCT_NAME_PLACEHOLDER, True),
-                             event_bus.subscribe(CoderCompleted, ProductNameAssignmentConsumer(user_id, product_id)),
-                             ui_bus.set_active_product(product_id))
-
-    await cl.Message(
-        content="Hello, I'm here to assist you with building your website. We can build it together one step at a time,"
-                " or you can give me the full specification, and I will have it built.").send()
+        await load_new_product(user_id, product_id)
 
 
 @cl.on_window_message
@@ -224,7 +237,12 @@ async def window_message(message: str | dict):
     #  (in fact this is a bug that product is stored in session).
     product_id = cl.user_session.get("product_id")
     user_id = cl.user_session.get("user_id")
+    init_context(request_id=uuid.uuid4().hex, user_id=user_id, product_id=product_id)
 
+    await _window_message_dispatch(method, message, user_id, product_id)
+
+
+async def _window_message_dispatch(method, message, user_id, product_id):
     if method == "set_active_page":
         cl.user_session.set("current_page", message.get("body"))
     elif method == "to_builder":
@@ -313,6 +331,8 @@ async def window_message(message: str | dict):
 async def respond(message: Message):
     product_id = cl.user_session.get("product_id")
     user_id = cl.user_session.get("user_id")
+    init_context(request_id=uuid.uuid4().hex, user_id=user_id, product_id=product_id)
+
     breba_message = from_cl_message(message)
 
     if len(message.elements) > 0:
@@ -356,7 +376,7 @@ async def add_to_waitlist(email: str, comments: str):
         )
         resp.raise_for_status()
     except Exception:
-        logging.exception("Failed to send request to Apps Script")
+        logger.exception("Failed to send request to Apps Script")
 
 
 @cl.oauth_callback
