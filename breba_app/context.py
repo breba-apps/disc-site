@@ -1,3 +1,4 @@
+import uuid
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
@@ -23,8 +24,13 @@ def init_context(
     user_id: str | None = None,
     product_id: str | None = None,
 ) -> None:
-    """Set a fresh BrebaContext for the current asyncio task. Discards any prior context."""
-    _context_var.set(BrebaContext(request_id=request_id, user_id=user_id, product_id=product_id))
+    """Set a fresh BrebaContext for the current asyncio task. Discards any prior context.
+    If request_id is not provided, a fresh uuid is generated."""
+    _context_var.set(BrebaContext(
+        request_id=request_id or uuid.uuid4().hex,
+        user_id=user_id,
+        product_id=product_id,
+    ))
 
 
 @contextmanager
@@ -34,8 +40,13 @@ def bind_context(
     user_id: str | None = None,
     product_id: str | None = None,
 ):
-    """Replace the BrebaContext for the duration of the block, then restore the previous one."""
-    token = _context_var.set(BrebaContext(request_id=request_id, user_id=user_id, product_id=product_id))
+    """Replace the BrebaContext for the duration of the block, then restore the previous one.
+    If request_id is not provided, a fresh uuid is generated."""
+    token = _context_var.set(BrebaContext(
+        request_id=request_id or uuid.uuid4().hex,
+        user_id=user_id,
+        product_id=product_id,
+    ))
     try:
         yield
     finally:

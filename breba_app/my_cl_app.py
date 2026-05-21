@@ -1,7 +1,6 @@
 import asyncio
 import json
 import logging
-import uuid
 from typing import AsyncIterator
 
 import chainlit as cl
@@ -210,7 +209,7 @@ async def main():
     # Phase 2: initialize context (one-shot, no merging)
     user_id = str(user.id) if user else None
     product_id = active_product.product_id if active_product else cl.user_session.get("id")
-    init_context(request_id=uuid.uuid4().hex, user_id=user_id, product_id=product_id)
+    init_context(user_id=user_id, product_id=product_id)
     if user_id:
         cl.user_session.set("user_id", user_id)
     cl.user_session.set("product_id", product_id)
@@ -237,7 +236,7 @@ async def window_message(message: str | dict):
     #  (in fact this is a bug that product is stored in session).
     product_id = cl.user_session.get("product_id")
     user_id = cl.user_session.get("user_id")
-    init_context(request_id=uuid.uuid4().hex, user_id=user_id, product_id=product_id)
+    init_context(user_id=user_id, product_id=product_id)
 
     await _window_message_dispatch(method, message, user_id, product_id)
 
@@ -331,7 +330,7 @@ async def _window_message_dispatch(method, message, user_id, product_id):
 async def respond(message: Message):
     product_id = cl.user_session.get("product_id")
     user_id = cl.user_session.get("user_id")
-    init_context(request_id=uuid.uuid4().hex, user_id=user_id, product_id=product_id)
+    init_context(user_id=user_id, product_id=product_id)
 
     breba_message = from_cl_message(message)
 
