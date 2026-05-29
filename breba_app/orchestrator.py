@@ -148,7 +148,7 @@ async def baml_stream_and_collect_user_response(stream: BamlStream, stream_recei
 
 def _current_page_messages(page: str) -> list[LLMMessage]:
     return [LLMMessage(role="user", content=f"The user is currently viewing: {page}\n"),
-            LLMMessage(role="assistant", content="I understand the the user is making comments while view this page, but the comments may be about any part of the product, not just the current page.")]
+            LLMMessage(role="assistant", content="I understand the user is making comments while viewing this page, but the comments may be about any part of the product, not just the current page.")]
 
 
 @agent_task
