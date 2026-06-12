@@ -246,7 +246,7 @@ def _user_session_object(user_id: str, session_id: str, relative_path: str, desc
 def save_image_to_private(user_id: str, session_id: str, image_name: str, content: bytes, description: str = None):
     """
     Save image bytes to private bucket. This is used for uploads of images form AI, but is not safe for user-uploaded images.
-    :param user_id: username
+    :param user_id: user identifier used to namespace the user's files
     :param session_id: session id used for locating image files
     :param image_name: image name
     :param content: image content
