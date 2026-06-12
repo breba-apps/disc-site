@@ -123,7 +123,7 @@ async def deploy_to_github(user_id: str, product_id: str, filestore: FileStore, 
     token = decrypt_token(user.github_access_token)
 
     try:
-        files = {path: fw.content for path, fw in filestore._files.items()}
+        files = {path: filestore.read_bytes(path) for path in filestore.list_files()}
 
         if product.github_repo:
             # Re-deploy: push updated files to existing repo
@@ -137,7 +137,7 @@ async def deploy_to_github(user_id: str, product_id: str, filestore: FileStore, 
                 return GitHubDeployResult(success=False, error="An organization name is required for the first deploy.")
             repo_name = slugify(product.name or "breba-page")
             repo_info = await create_repo(token, org, repo_name)
-            repo_name = repo_info["name"]  # may have been suffixed for uniqueness
+            repo_name = repo_info["name"]  # canonical name from GitHub (create_repo find-or-creates; matches the requested slug)
             deploy_org = org
             # Push files before enabling Pages — Pages API requires content on the branch
             await push_files(token, deploy_org, repo_name, files)

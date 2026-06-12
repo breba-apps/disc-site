@@ -1,7 +1,7 @@
 import logging
 import os
 
-from pythonjsonlogger import jsonlogger
+from pythonjsonlogger.json import JsonFormatter
 
 from breba_app.context import get_context
 
@@ -32,7 +32,7 @@ def setup_logging(level: int | str = logging.INFO, fmt: str | None = None) -> No
     handler.addFilter(ContextFilter())
 
     if fmt == "json":
-        handler.setFormatter(jsonlogger.JsonFormatter(_JSON_FIELDS))
+        handler.setFormatter(JsonFormatter(_JSON_FIELDS))
     else:
         handler.setFormatter(logging.Formatter(_TEXT_FORMAT))
 
