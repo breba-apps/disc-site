@@ -27,7 +27,9 @@ The guide is split into the order you need:
 1. **[Setup](#1-setup-first-run)** — create config, install dependencies, start infra, create a
    user, and seed a starter product.
 2. **[Day-to-day: run & stop](#2-day-to-day-run--stop)** — the commands you will use after setup.
-3. **[Teardown](#3-teardown-full-wipe)** — remove local data and config.
+3. **[Connect a coding agent (MCP)](#3-connect-a-coding-agent-mcp)** — let coding agents edit a
+   local product.
+4. **[Teardown](#4-teardown-full-wipe)** — remove local data and config.
 
 
 ## Prerequisites
@@ -211,6 +213,9 @@ AWS_RESPONSE_CHECKSUM_VALIDATION=when_required
 CHAINLIT_AUTH_SECRET='$SECRET'
 TOKEN_ENCRYPTION_KEY=$FERNET
 
+# --- MCP push API tuning (optional; defaults shown, uncomment to change) ---
+# MCP_MAX_FILE_BYTES=20971520          # per-file /mcp/push cap in bytes (20 MB), 413 above it
+
 # --- Unused locally (kept present so the env loader is satisfied) ---
 GITHUB_PERSONAL_ACCESS_TOKEN=
 CHAINLIT_ROOT_PATH=
@@ -300,7 +305,7 @@ Create a password user. This replaces Google SSO locally:
 ### 1.5 Seed a starter product
 
 Seeding creates a starter product without an LLM call. It writes a minimal site to local storage
-and prints the `user_id` and `product_id`.
+and prints the `user_id` and `product_id` you will need later for MCP.
 
 <details>
 <summary><b><code>.secrets/breba/seed_product.py</code></b> — the seeding helper</summary>
@@ -317,7 +322,7 @@ Seed a starter product for an existing user, without any LLM call.
 Writes a pre-built minimal site straight to storage, replicating the durable
 state the coder agent leaves behind: a Mongo Product doc, versioned files in
 the users bucket, and preview files in the public bucket. Prints the user_id
-and product_id.
+and product_id (needed for MCP tokens/pushes).
 
 Usage (from the repo root):
     PYTHONPATH=. uv run python .secrets/breba/seed_product.py <username>
@@ -439,7 +444,21 @@ docker compose -f .secrets/breba/infra.compose.yml down  # WITHOUT -v: -v wipes 
 colima stop                                              # skip if using Docker Desktop
 ```
 
-## 3. Teardown (full wipe)
+## 3. Connect a coding agent (MCP)
+
+Driving a local product from your own coding agent — Claude Code, Codex, Cursor, OpenCode, or a
+local model — is the main reason to run this stack. The MCP server in `mcp_server/` exposes the
+site as a set of tools: the agent reads and writes files, and every push creates a new revision
+and rebuilds the preview. Deploying stays a Breba UI action.
+
+Both MCP transports work: **stdio**, where the agent launches the server itself, and **Streamable
+HTTP**, where you run one long-lived server that agents connect to by URL.
+
+Quick start, per-agent config examples, first-run authorization, and a detailed overview are
+all in
+**[`mcp_server/README.md`](mcp_server/README.md)**.
+
+## 4. Teardown (full wipe)
 
 > **Stop the app first:** press `Ctrl-C` in the terminal running `./start.bash`.
 
@@ -454,6 +473,7 @@ Delete all local data and config:
 ```bash
 docker compose -f .secrets/breba/infra.compose.yml down -v   # deletes users, products, site files
 rm -rf .secrets/breba                                        # env, compose file, Caddyfile, seed script
+rm -rf ~/.config/breba-mcp                                   # cached MCP token, if you used MCP
 ```
 
 If you applied the preview-pane patch in step 1.2, undo it:
@@ -467,6 +487,11 @@ Also remove these by hand if you created them:
 
 - the `[profile breba-local]` block in `~/.aws/config`
 - the `.secrets/` line in `.git/info/exclude`
+- agent MCP configs: `<workspace>/.mcp.json`, `<workspace>/opencode.json`,
+  `<workspace>/.cursor/mcp.json`, `<workspace>/.codex/config.toml`,
+  `<workspace>/hermes-breba.sh` + `<workspace>/.hermes/`, and the `breba-site` entries in
+  `~/.gemini/config/mcp_config.json` (agy) / `~/.hermes/config.yaml` (Hermes) /
+  `~/.codex/config.toml` (Codex)
 
 ```bash
 colima stop      # or `colima delete` to remove the VM entirely; skip if using Docker Desktop
@@ -475,9 +500,9 @@ colima stop      # or `colima delete` to remove the VM entirely; skip if using D
 ## What works without API keys
 
 The app can boot with a dummy `OPENAI_API_KEY`; the value only needs to be non-empty. Login,
-seeded products, preview, and version history all work without a real `OPENAI_API_KEY` — none of
-them calls the LLM. The key is needed for chat-driven generation and edits, automatic product
-naming, and `AGENTS.md` summaries.
+seeded products, preview, version history, and MCP push/read all work without a real
+`OPENAI_API_KEY` — none of them calls the LLM. The key is needed for chat-driven generation and
+edits, automatic product naming, and `AGENTS.md` summaries.
 
 ## Troubleshooting
 
@@ -492,7 +517,7 @@ naming, and `AGENTS.md` summaries.
 - **`.secrets directory not found`** → run from the repo root; `.secrets/breba/.env` must exist.
 - **Login fails** → re-run `./scripts/create_user.bash`; confirm Mongo is up.
 - **Product won't generate via chat** → `OPENAI_API_KEY` must be real. Check the `start.bash`
-  logs for the OpenAI error. Only chat needs the key; seeding does not.
+  logs for the OpenAI error. Only chat needs the key; seeding and MCP push do not.
 - **Preview pane blank / CSS 403** → Caddy may not be running, or the step 1.2 patch may not be
   applied. Verify
   `curl -s -o /dev/null -w '%{http_code}\n' http://<product_id>.localhost:8088/styles.css` → 200,
@@ -501,6 +526,8 @@ naming, and `AGENTS.md` summaries.
   `dev-breba-public/<product_id>/`; trigger a rebuild by clicking a version in the app's version
   menu (LLM-free) or sending a chat message.
 - **Push succeeds but preview doesn't update** → the Caddy proxy isn't running.
+- **MCP consent page shows no products / "Product not found"** → the signed-in user does not own
+  the target `product_id`, or no product exists yet. Go back to step 1.5.
 - **`colima start` fails: "vz driver is running but host agent is not"** → stale
   `~/.colima/_lima/colima/vz.pid` after an unclean shutdown. Confirm nothing lima/vz is running
   (`ps aux | grep -i lima`), then delete the pid file and retry. Your data is unaffected.
