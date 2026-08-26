@@ -34,11 +34,9 @@ because the page keeps the one-time authorize URL alive (sign-in opens in a
 new tab; a continue link re-hits the same URL once the session cookie exists),
 the latter because the URI can't be trusted.
 
-CSRF posture of the consent POST (deliberate): it relies on the Chainlit
-session cookie's SameSite behavior plus the loopback-only ``redirect_uri``
-restriction — an attacker who tricked a signed-in user into submitting the
-form would additionally need a listener on the victim's own machine to receive
-the code.
+CSRF: the consent POST requires a same-origin ``Origin``/``Referer`` header
+(``_same_origin``), so protection does not depend on the session cookie's
+SameSite setting; the loopback-only ``redirect_uri`` remains a second layer.
 """
 from urllib.parse import urlencode, urlparse
 
@@ -83,6 +81,12 @@ def _is_loopback(redirect_uri: str) -> bool:
     except ValueError:
         return False
     return parsed.scheme in ("http", "https") and parsed.hostname in _LOOPBACK_HOSTS
+
+
+def _same_origin(request: Request) -> bool:
+    """CSRF check independent of the cookie's SameSite setting; fails closed."""
+    src = request.headers.get("origin") or request.headers.get("referer")
+    return bool(src) and urlparse(src).netloc == request.url.netloc
 
 
 def _redirect_back(redirect_uri: str, **params: str) -> str:
@@ -202,6 +206,9 @@ async def authorize_decision(request: Request, redirect_uri: str = Form(""),
     if not _is_loopback(redirect_uri):
         return _message(request, "Invalid request",
                         "redirect_uri must be a loopback address.", status_code=400)
+    if not _same_origin(request):
+        return _redirect_error(redirect_uri, "invalid_origin",
+                               "Consent must be submitted from the Breba consent page.", state)
     if current_user is None:
         return _redirect_error(redirect_uri, "session_expired",
                                "Your Breba session expired. Sign in in the browser and retry.",

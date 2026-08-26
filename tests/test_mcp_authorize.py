@@ -74,7 +74,9 @@ def app():
 
 @pytest.fixture
 def client(app):
-    return TestClient(app, follow_redirects=False)
+    # Default Origin matches TestClient's base URL, as a real browser would send.
+    return TestClient(app, follow_redirects=False,
+                      headers={"origin": "http://testserver"})
 
 
 def _login_as(app, identifier="alice"):
@@ -343,6 +345,35 @@ def test_deny_redirects_with_access_denied(app, client, mocker):
     qs = parse_qs(urlparse(resp.headers["location"]).query)
     assert qs["error"] == ["access_denied"]
     assert qs["state"] == ["xyz"]
+
+
+def _post_approve(client, **headers):
+    return client.post("/mcp/authorize", data={
+        "redirect_uri": "http://127.0.0.1:54321/callback",
+        "state": "xyz", "product_id": PRODUCT_ID, "decision": "approve",
+    }, headers=headers)
+
+
+@pytest.mark.parametrize("headers", [
+    {"origin": "http://evil.example.com"},
+    {"origin": "", "referer": ""},  # neither header: fail closed
+])
+def test_approve_cross_or_missing_origin_redirects_with_error(app, client, mocker, headers):
+    _login_as(app)
+    _patch_db(mocker, products=[_make_product()])
+    resp = _post_approve(client, **headers)
+    assert resp.status_code == 303
+    qs = parse_qs(urlparse(resp.headers["location"]).query)
+    assert qs["error"] == ["invalid_origin"]
+    assert qs["state"] == ["xyz"]
+
+
+def test_approve_accepts_matching_referer_without_origin(app, client, mocker):
+    _login_as(app)
+    _patch_db(mocker, products=[_make_product()])
+    resp = _post_approve(client, origin="", referer="http://testserver/mcp/authorize")
+    assert resp.status_code == 303
+    assert "code" in parse_qs(urlparse(resp.headers["location"]).query)
 
 
 def test_approve_unowned_product_redirects_with_error(app, client, mocker):
