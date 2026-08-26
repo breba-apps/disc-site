@@ -1,0 +1,56 @@
+{% extends "mcp_base.html" %}
+
+{% block title %}{{ heading }} · Breba{% endblock %}
+
+{% block mcp_style %}
+<style>
+    .mcp-card {
+        text-align: center;
+    }
+
+    .btn-link-action {
+        display: inline-block;
+        margin-top: 1.25rem;
+        background-color: #5f31eb;
+        border-radius: 0.5rem;
+        padding: 0.5rem 1.25rem;
+        font-weight: 500;
+        color: #fff;
+        text-decoration: none;
+    }
+
+    .btn-link-action:hover {
+        background-color: #4b28c4;
+        color: #fff;
+    }
+
+    .btn-link-secondary {
+        display: block;
+        width: fit-content;
+        margin: 0.75rem auto 0;
+        border: 1px solid #5f31eb;
+        border-radius: 0.5rem;
+        padding: 0.5rem 1.25rem;
+        font-weight: 500;
+        color: #5f31eb;
+        text-decoration: none;
+    }
+
+    .btn-link-secondary:hover {
+        background-color: #f5f3ff;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mcp-card">
+    <h1>{{ heading }}</h1>
+    <p>{{ message }}</p>
+    {% if link_url %}
+    <a class="btn-link-action" href="{{ link_url }}"{% if link_new_tab %} target="_blank" rel="noopener"{% endif %}>{{ link_text or "Continue" }}</a>
+    {% endif %}
+    {% if continue_url %}
+    <a class="btn-link-secondary" href="{{ continue_url }}">{{ continue_text or "Continue" }}</a>
+    {% endif %}
+</div>
+{% endblock %}

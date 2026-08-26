@@ -26,6 +26,8 @@ from breba_app.context import bind_context
 from breba_app.logging_config import setup_logging
 from breba_app.github_controller import enforce_github_https, get_github_connection_status, handle_github_callback, \
     list_github_orgs, set_github_custom_domain
+from breba_app.mcp_api.authorize import router as mcp_authorize_router
+from breba_app.mcp_api.router import router as mcp_router
 from breba_app.models.product import Product
 from breba_app.models.user import User
 from breba_app.orchestrator import load_state, state_exists
@@ -363,6 +365,9 @@ async def upload_files(
 
     return JSONResponse({"version": new_version})
 
+
+app.include_router(mcp_router)
+app.include_router(mcp_authorize_router)
 
 current_file_dir = Path(__file__).parent
 mount_chainlit(app=app, target=str(current_file_dir / "my_cl_app.py"), path="/chainlit")

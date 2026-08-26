@@ -1,0 +1,87 @@
+{% extends "mcp_base.html" %}
+
+{% block title %}Authorize agent · Breba{% endblock %}
+
+{% block mcp_style %}
+<style>
+    .mcp-user {
+        font-weight: 600;
+    }
+
+    .mcp-label {
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: #374151;
+        margin-bottom: 0.25rem;
+        display: block;
+    }
+
+    .mcp-actions {
+        display: flex;
+        gap: 0.75rem;
+        margin-top: 1.5rem;
+    }
+
+    .btn-approve {
+        background-color: #5f31eb;
+        border: none;
+        border-radius: 0.5rem;
+        padding: 0.5rem 1.25rem;
+        font-weight: 500;
+        color: #fff;
+    }
+
+    .btn-approve:hover {
+        background-color: #4b28c4;
+        color: #fff;
+    }
+
+    .btn-deny {
+        background-color: #fff;
+        border: 1px solid #d1d5db;
+        border-radius: 0.5rem;
+        padding: 0.5rem 1.25rem;
+        font-weight: 500;
+        color: #374151;
+    }
+
+    .btn-deny:hover {
+        background-color: #f3f4f6;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mcp-card">
+    <h1>Authorize coding agent</h1>
+    <p>
+        Allow a local coding agent to read and push website files as
+        <span class="mcp-user">{{ username }}</span>. The agent gets a token scoped
+        to the product below — it cannot deploy or change your account.
+    </p>
+
+    <form method="post" action="/mcp/authorize" class="mt-4">
+        <input type="hidden" name="redirect_uri" value="{{ redirect_uri }}">
+        <input type="hidden" name="state" value="{{ state }}">
+        <input type="hidden" name="code_challenge" value="{{ code_challenge }}">
+
+        <label class="mcp-label" for="product_id">Product</label>
+        <select class="form-select" id="product_id" name="product_id" required>
+            {% for product in products %}
+            <option value="{{ product.id }}" {% if product.id == selected_product_id %}selected{% endif %}>
+                {{ product.name }}
+            </option>
+            {% endfor %}
+        </select>
+
+        <div class="mcp-actions">
+            <button type="submit" name="decision" value="approve" class="btn btn-approve">
+                Approve
+            </button>
+            <button type="submit" name="decision" value="deny" class="btn btn-deny">
+                Deny
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
